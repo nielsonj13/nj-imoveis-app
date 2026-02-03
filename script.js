@@ -616,38 +616,30 @@ window.gerarContratoPDF = (id) => {
     const i = item.data;
 
     // --- 1. CÁLCULO DE DATAS ---
-    
-    // Data de Início: Pega do banco ou usa hoje como padrão
-    // Adiciona 'T00:00:00' para evitar problemas de fuso horário com input date
     let dtInicioObj = i.dataInicio ? new Date(i.dataInicio + 'T00:00:00') : new Date();
-    
-    // Formata Início (DD/MM/AAAA)
     const diaI = String(dtInicioObj.getDate()).padStart(2, '0');
     const mesI = String(dtInicioObj.getMonth() + 1).padStart(2, '0');
     const anoI = dtInicioObj.getFullYear();
     const dataInicioFormatada = `${diaI}/${mesI}/${anoI}`;
 
-    // Calcula Data Final (Início + Prazo em Meses)
     const mesesDuracao = parseInt(i.prazoContrato || 12);
     const dtFimObj = new Date(dtInicioObj);
     dtFimObj.setMonth(dtFimObj.getMonth() + mesesDuracao);
     
-    // Formata Fim (DD/MM/AAAA)
     const diaF = String(dtFimObj.getDate()).padStart(2, '0');
     const mesF = String(dtFimObj.getMonth() + 1).padStart(2, '0');
     const anoF = dtFimObj.getFullYear();
     const dataFimFormatada = `${diaF}/${mesF}/${anoF}`;
 
-    // Data de Hoje por extenso (para a assinatura)
     const dataHoje = new Date();
     const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    // Formatação de Moeda
     const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
 
-    // --- 2. O TEXTO DO CONTRATO (MODELO DO NIELSON) ---
+    // --- 2. O TRUQUE DO MOBILE (DIV COM LARGURA FIXA) ---
+    // Adicionei 'width: 800px' e 'background: white' no container principal.
+    // Isso força o PDF a renderizar largo, mesmo na tela pequena do celular.
     const conteudoContrato = `
-        <div style="padding: 40px; font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.5; color: #000;">
+        <div id="pdf-container" style="width: 800px; padding: 40px; background-color: white; color: black; font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5;">
             
             <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 25px;">CONTRATO DE LOCAÇÃO DE IMÓVEL RESIDENCIAL</h3>
 
@@ -696,7 +688,7 @@ window.gerarContratoPDF = (id) => {
             </p>
 
             <p style="text-align: justify;">
-                <strong>CLÁUSULA NONA:</strong> Em caso de sinistro parcial ou total do prédio, que impossibilite a habitação o imóvel locado, o presente contrato estará rescindido, independentemente de aviso ou interpelação judicial ou extrajudicial.
+                <strong>CLÁUSULA NONA:</strong> Em caso de sinistro parcial ou total do prédio, que impossibilite a habitação o imóvel locado, o presente contrato estará rescindido.
             </p>
 
             <p style="text-align: justify;">
@@ -704,30 +696,26 @@ window.gerarContratoPDF = (id) => {
             </p>
 
             <p style="text-align: justify;">
-                <strong>CLÁUSULA DÉCIMA PRIMEIRA:</strong> A infração de qualquer das cláusulas do presente contrato, sujeita o infrator à multa de duas vezes o valor do aluguel, tomando-se por base, o último aluguel vencido.
+                <strong>CLÁUSULA DÉCIMA PRIMEIRA:</strong> A infração de qualquer das cláusulas do presente contrato, sujeita o infrator à multa de duas vezes o valor do aluguel.
             </p>
 
             <p style="text-align: justify;">
-                <strong>CLÁUSULA DÉCIMA SEGUNDA:</strong> As partes contratantes obrigam-se por si, herdeiros e/ou sucessores, elegendo o Foro da Cidade de Palmares-PE, para a propositura de qualquer ação.
+                <strong>CLÁUSULA DÉCIMA SEGUNDA:</strong> As partes contratantes obrigam-se por si, herdeiros e/ou sucessores, elegendo o Foro da Cidade de Palmares-PE.
             </p>
 
             <p style="text-align: justify;">
-                E, por assim estarem justos e contratados assinam o presente instrumento em duas (02) vias, para um só efeito, assinando-as, juntamente com as testemunhas.
+                E, por assim estarem justos e contratados assinam o presente instrumento em duas (02) vias, para um só efeito.
             </p>
 
             <br>
-            
             <p style="text-align: right;">Palmares-PE, ${dataExtenso}.</p>
-            
             <br><br><br>
             
             <div style="width: 100%; text-align: center;">
                 <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
                 <strong>NIELSON FLORENCIO DA SILVA</strong><br>Locador
             </div>
-
             <br><br><br>
-
             <div style="width: 100%; text-align: center;">
                 <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
                 <strong>{{INQUILINO}}</strong><br>Locatário(a)
@@ -735,7 +723,7 @@ window.gerarContratoPDF = (id) => {
         </div>
     `;
 
-    // --- 3. SUBSTITUIÇÃO DAS VARIÁVEIS ---
+    // --- 3. SUBSTITUIÇÃO ---
     let htmlFinal = conteudoContrato
         .replace(/{{INQUILINO}}/g, (i.inquilino || "___").toUpperCase())
         .replace(/{{RG}}/g, i.rg || "___")
@@ -747,15 +735,20 @@ window.gerarContratoPDF = (id) => {
         .replace(/{{DATA_INICIO}}/g, dataInicioFormatada)
         .replace(/{{DATA_FIM}}/g, dataFimFormatada);
 
-    // --- 4. CONFIGURAÇÃO E DOWNLOAD DO PDF ---
+    // --- 4. CONFIGURAÇÃO AJUSTADA PARA MOBILE ---
     const opt = {
-        margin: 10, // Margem em mm
+        margin: [10, 10, 10, 10], // Margens
         filename: `Contrato_${i.inquilino ? i.inquilino.split(' ')[0] : 'Locacao'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 }, // Melhora a resolução
+        html2canvas: { 
+            scale: 2, // Boa resolução
+            scrollY: 0,
+            windowWidth: 800 // O SEGREDO: Simula uma janela de PC de 800px
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
+    // Gera o PDF
     html2pdf().set(opt).from(htmlFinal).save();
 }
 
