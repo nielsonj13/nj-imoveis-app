@@ -615,7 +615,7 @@ window.gerarContratoPDF = (id) => {
     if (!item) return;
     const i = item.data;
 
-    // --- 1. CÁLCULO DE DATAS ---
+    // --- 1. PREPARAÇÃO DOS DADOS (Igual antes) ---
     let dtInicioObj = i.dataInicio ? new Date(i.dataInicio + 'T00:00:00') : new Date();
     const diaI = String(dtInicioObj.getDate()).padStart(2, '0');
     const mesI = String(dtInicioObj.getMonth() + 1).padStart(2, '0');
@@ -635,123 +635,121 @@ window.gerarContratoPDF = (id) => {
     const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
 
-    // --- 2. CONTEÚDO (MUDANÇA CRUCIAL AQUI) ---
-    // Removemos a largura fixa em PX. Usamos 100% e deixamos o html2canvas simular a largura.
-    const conteudoContrato = `
-        <div id="pdf-container" style="width: 100%; padding: 30px; box-sizing: border-box; background-color: white; color: black; font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5;">
-            
-            <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 25px;">CONTRATO DE LOCAÇÃO DE IMÓVEL RESIDENCIAL</h3>
+    // --- 2. CRIAÇÃO DO ELEMENTO OFF-SCREEN (O TRUQUE) ---
+    // Criamos uma DIV temporária que não aparece na tela, mas tem largura fixa de PC
+    const container = document.createElement('div');
+    
+    // Configura para ficar "escondido" mas renderizado com largura total
+    container.style.position = 'absolute';
+    container.style.left = '-9999px'; // Joga pra fora da tela
+    container.style.top = '0';
+    container.style.width = '800px'; // Largura fixa A4
+    container.style.backgroundColor = 'white';
+    container.style.padding = '40px';
+    container.style.fontFamily = "'Times New Roman', Times, serif";
+    container.style.fontSize = '12pt';
+    container.style.lineHeight = '1.5';
+    container.style.color = 'black';
 
-            <p style="text-align: justify;">
-                <strong>LOCATÁRIO:</strong> <strong>{{INQUILINO}}</strong>, brasileiro(a), portador da cédula de identidade R.G. nº <strong>{{RG}}</strong> e CPF nº <strong>{{CPF}}</strong>.
-            </p>
+    // HTML do Contrato
+    container.innerHTML = `
+        <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 25px;">CONTRATO DE LOCAÇÃO DE IMÓVEL RESIDENCIAL</h3>
 
-            <p style="text-align: justify;">
-                <strong>LOCADOR:</strong> NIELSON FLORÊNCIO DA SILVA, brasileiro, casado, portador da cédula de identidade R.G. n.º 6461460 SDS-PE e CPF n.º 046.304.114-37, residente e domiciliado em Palmares-PE.
-            </p>
+        <p style="text-align: justify;">
+            <strong>LOCATÁRIO:</strong> <strong>${(i.inquilino || "___").toUpperCase()}</strong>, brasileiro(a), portador da cédula de identidade R.G. nº <strong>${i.rg || "___"}</strong> e CPF nº <strong>${i.cpf || "___"}</strong>.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA PRIMEIRA:</strong> O objeto deste contrato de locação é o imóvel residencial, situado à <strong>{{ENDERECO}}</strong>.
-            </p>
+        <p style="text-align: justify;">
+            <strong>LOCADOR:</strong> NIELSON FLORÊNCIO DA SILVA, brasileiro, casado, portador da cédula de identidade R.G. n.º 6461460 SDS-PE e CPF n.º 046.304.114-37, residente e domiciliado em Palmares-PE.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA SEGUNDA:</strong> O prazo da locação é de <strong>{{PRAZO_MESES}} meses</strong>, iniciando-se em <strong>{{DATA_INICIO}}</strong> com término em <strong>{{DATA_FIM}}</strong>, independentemente de aviso, notificação ou interpelação judicial ou mesmo extrajudicial.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA PRIMEIRA:</strong> O objeto deste contrato de locação é o imóvel residencial, situado à <strong>${(i.endereco.completo || i.endereco).toUpperCase()}</strong>.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA TERCEIRA:</strong> O aluguel mensal deverá ser pago até o dia <strong>{{DIA_PAGTO}}</strong> do mês subsequente ao vencido, no local indicado pelo LOCADOR, no valor de <strong>{{VALOR}}</strong>.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA SEGUNDA:</strong> O prazo da locação é de <strong>${mesesDuracao} meses</strong>, iniciando-se em <strong>${dataInicioFormatada}</strong> com término em <strong>${dataFimFormatada}</strong>, independentemente de aviso, notificação ou interpelação judicial ou mesmo extrajudicial.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA QUARTA:</strong> O LOCATÁRIO será responsável por todos os tributos incidentes sobre o imóvel: Contas de luz, de água que serão pagas diretamente às empresas concessionárias dos referidos serviços.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA TERCEIRA:</strong> O aluguel mensal deverá ser pago até o dia <strong>${i.diaVencimento}</strong> do mês subsequente ao vencido, no local indicado pelo LOCADOR, no valor de <strong>${valorFormatado}</strong>.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA QUINTA:</strong> Em caso de mora no pagamento do aluguel, será aplicada multa de 2% (dois por cento) sobre o valor devido e juros mensais de 1% (um por cento) do montante devido.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA QUARTA:</strong> O LOCATÁRIO será responsável por todos os tributos incidentes sobre o imóvel: Contas de luz, de água que serão pagas diretamente às empresas concessionárias dos referidos serviços.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA SEXTA:</strong> Fica ao LOCATÁRIO, a responsabilidade em zelar pela conservação, limpeza do imóvel, efetuando as reformas necessárias para sua manutenção sendo que os gastos e pagamentos decorrentes da mesma, correrão por conta do mesmo. O LOCATÁRIO está obrigado a devolver o imóvel em perfeitas condições de limpeza, conservação e pintura, quando finda ou rescindida esta avença. O LOCATÁRIO não poderá realizar obras que alterem ou modifiquem a estrutura do imóvel locado, sem prévia autorização por escrito do LOCADOR.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA QUINTA:</strong> Em caso de mora no pagamento do aluguel, será aplicada multa de 2% (dois por cento) sobre o valor devido e juros mensais de 1% (um por cento) do montante devido.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>PARÁGRAFO ÚNICO:</strong> O LOCATÁRIO declara receber o imóvel em perfeito estado de conservação e perfeito funcionamento devendo observar o que consta no termo de vistoria.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA SEXTA:</strong> Fica ao LOCATÁRIO, a responsabilidade em zelar pela conservação, limpeza do imóvel, efetuando as reformas necessárias para sua manutenção sendo que os gastos e pagamentos decorrentes da mesma, correrão por conta do mesmo. O LOCATÁRIO está obrigado a devolver o imóvel em perfeitas condições de limpeza, conservação e pintura, quando finda ou rescindida esta avença.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA SÉTIMA:</strong> O LOCATÁRIO declara, que o imóvel ora locado, destina-se única e exclusivamente para o seu uso residencial e de sua família.
-            </p>
+        <p style="text-align: justify;">
+            <strong>PARÁGRAFO ÚNICO:</strong> O LOCATÁRIO declara receber o imóvel em perfeito estado de conservação e perfeito funcionamento devendo observar o que consta no termo de vistoria.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA OITAVA:</strong> O LOCATÁRIO não poderá sublocar, transferir ou ceder o imóvel, sendo nulo de pleno direito qualquer ato praticado com este fim sem o consentimento prévio e por escrito do LOCADOR.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA SÉTIMA:</strong> O LOCATÁRIO declara, que o imóvel ora locado, destina-se única e exclusivamente para o seu uso residencial e de sua família.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA NONA:</strong> Em caso de sinistro parcial ou total do prédio, que impossibilite a habitação o imóvel locado, o presente contrato estará rescindido.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA OITAVA:</strong> O LOCATÁRIO não poderá sublocar, transferir ou ceder o imóvel, sendo nulo de pleno direito qualquer ato praticado com este fim sem o consentimento prévio e por escrito do LOCADOR.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA DÉCIMA:</strong> É facultado ao LOCADOR vistoriar, por si ou seus procuradores, sempre que achar conveniente, para a certeza do cumprimento das obrigações assumidas neste contrato.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA NONA:</strong> Em caso de sinistro parcial ou total do prédio, que impossibilite a habitação o imóvel locado, o presente contrato estará rescindido.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA DÉCIMA PRIMEIRA:</strong> A infração de qualquer das cláusulas do presente contrato, sujeita o infrator à multa de duas vezes o valor do aluguel.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA DÉCIMA:</strong> É facultado ao LOCADOR vistoriar, por si ou seus procuradores, sempre que achar conveniente, para a certeza do cumprimento das obrigações assumidas neste contrato.
+        </p>
 
-            <p style="text-align: justify;">
-                <strong>CLÁUSULA DÉCIMA SEGUNDA:</strong> As partes contratantes obrigam-se por si, herdeiros e/ou sucessores, elegendo o Foro da Cidade de Palmares-PE.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA DÉCIMA PRIMEIRA:</strong> A infração de qualquer das cláusulas do presente contrato, sujeita o infrator à multa de duas vezes o valor do aluguel.
+        </p>
 
-            <p style="text-align: justify;">
-                E, por assim estarem justos e contratados assinam o presente instrumento em duas (02) vias, para um só efeito.
-            </p>
+        <p style="text-align: justify;">
+            <strong>CLÁUSULA DÉCIMA SEGUNDA:</strong> As partes contratantes obrigam-se por si, herdeiros e/ou sucessores, elegendo o Foro da Cidade de Palmares-PE.
+        </p>
 
-            <br>
-            <p style="text-align: right;">Palmares-PE, ${dataExtenso}.</p>
-            <br><br>
-            
-            <div style="width: 100%; text-align: center;">
-                <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
-                <strong>NIELSON FLORENCIO DA SILVA</strong><br>Locador
-            </div>
-            <br><br>
-            <div style="width: 100%; text-align: center;">
-                <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
-                <strong>{{INQUILINO}}</strong><br>Locatário(a)
-            </div>
+        <p style="text-align: justify;">
+            E, por assim estarem justos e contratados assinam o presente instrumento em duas (02) vias, para um só efeito.
+        </p>
+
+        <br>
+        <p style="text-align: right;">Palmares-PE, ${dataExtenso}.</p>
+        <br><br>
+        
+        <div style="width: 100%; text-align: center;">
+            <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
+            <strong>NIELSON FLORENCIO DA SILVA</strong><br>Locador
+        </div>
+        <br><br>
+        <div style="width: 100%; text-align: center;">
+            <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
+            <strong>${(i.inquilino || "___").toUpperCase()}</strong><br>Locatário(a)
         </div>
     `;
 
-    // --- 3. SUBSTITUIÇÃO ---
-    let htmlFinal = conteudoContrato
-        .replace(/{{INQUILINO}}/g, (i.inquilino || "___").toUpperCase())
-        .replace(/{{RG}}/g, i.rg || "___")
-        .replace(/{{CPF}}/g, i.cpf || "___")
-        .replace(/{{ENDERECO}}/g, (i.endereco.completo || i.endereco).toUpperCase())
-        .replace(/{{VALOR}}/g, valorFormatado)
-        .replace(/{{DIA_PAGTO}}/g, i.diaVencimento)
-        .replace(/{{PRAZO_MESES}}/g, mesesDuracao)
-        .replace(/{{DATA_INICIO}}/g, dataInicioFormatada)
-        .replace(/{{DATA_FIM}}/g, dataFimFormatada);
+    // Adiciona o container invisível ao corpo da página
+    document.body.appendChild(container);
 
-    // --- 4. CONFIGURAÇÃO BLINDADA PARA MOBILE ---
+    // --- 3. GERAÇÃO DO PDF ---
     const opt = {
         margin: [10, 10, 10, 10], 
         filename: `Contrato_${i.inquilino ? i.inquilino.split(' ')[0] : 'Locacao'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-            scale: 2, 
-            scrollY: 0,
-            scrollX: 0,
-            // O SEGREDO: Forçamos a "janela virtual" a ter 800px.
-            // Assim, o conteúdo "width: 100%" se estica até 800px, ficando perfeito.
-            windowWidth: 800,
-            width: 800 
-        },
+        html2canvas: { scale: 2, scrollY: 0 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(htmlFinal).save();
+    // Gera e depois remove o container
+    html2pdf().set(opt).from(container).save().then(() => {
+        document.body.removeChild(container);
+    });
 }
 
 // --- MÁSCARAS DE INPUT (FORMATAÇÃO AUTOMÁTICA) ---
