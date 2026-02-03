@@ -635,11 +635,10 @@ window.gerarContratoPDF = (id) => {
     const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
 
-    // --- 2. O TRUQUE DO MOBILE (DIV COM LARGURA FIXA) ---
-    // Adicionei 'width: 800px' e 'background: white' no container principal.
-    // Isso força o PDF a renderizar largo, mesmo na tela pequena do celular.
+    // --- 2. CONTEÚDO (AJUSTADO PARA NÃO CORTAR) ---
+    // Mudei width para 700px e adicionei margin: 0 auto para centralizar
     const conteudoContrato = `
-        <div id="pdf-container" style="width: 800px; padding: 40px; background-color: white; color: black; font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5;">
+        <div id="pdf-container" style="width: 700px; margin: 0 auto; padding: 20px; background-color: white; color: black; font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.5;">
             
             <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 25px;">CONTRATO DE LOCAÇÃO DE IMÓVEL RESIDENCIAL</h3>
 
@@ -709,13 +708,13 @@ window.gerarContratoPDF = (id) => {
 
             <br>
             <p style="text-align: right;">Palmares-PE, ${dataExtenso}.</p>
-            <br><br><br>
+            <br><br>
             
             <div style="width: 100%; text-align: center;">
                 <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
                 <strong>NIELSON FLORENCIO DA SILVA</strong><br>Locador
             </div>
-            <br><br><br>
+            <br><br>
             <div style="width: 100%; text-align: center;">
                 <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto 5px auto;"></div>
                 <strong>{{INQUILINO}}</strong><br>Locatário(a)
@@ -735,20 +734,21 @@ window.gerarContratoPDF = (id) => {
         .replace(/{{DATA_INICIO}}/g, dataInicioFormatada)
         .replace(/{{DATA_FIM}}/g, dataFimFormatada);
 
-    // --- 4. CONFIGURAÇÃO AJUSTADA PARA MOBILE ---
+    // --- 4. CONFIGURAÇÃO (Janela Virtual de 800px) ---
     const opt = {
-        margin: [10, 10, 10, 10], // Margens
+        margin: [10, 10, 10, 10], // Margem segura (Cima, Dir, Baixo, Esq)
         filename: `Contrato_${i.inquilino ? i.inquilino.split(' ')[0] : 'Locacao'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
-            scale: 2, // Boa resolução
+            scale: 2, 
             scrollY: 0,
-            windowWidth: 800 // O SEGREDO: Simula uma janela de PC de 800px
+            windowWidth: 800, // Simula tela de PC
+            x: 0, 
+            y: 0
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Gera o PDF
     html2pdf().set(opt).from(htmlFinal).save();
 }
 
