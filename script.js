@@ -635,10 +635,10 @@ window.gerarContratoPDF = (id) => {
     const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
 
-    // --- 2. CONTEÚDO (AJUSTADO PARA NÃO CORTAR) ---
-    // Mudei width para 700px e adicionei margin: 0 auto para centralizar
+    // --- 2. CONTEÚDO (MUDANÇA CRUCIAL AQUI) ---
+    // Removemos a largura fixa em PX. Usamos 100% e deixamos o html2canvas simular a largura.
     const conteudoContrato = `
-        <div id="pdf-container" style="width: 700px; margin: 0 auto; padding: 20px; background-color: white; color: black; font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.5;">
+        <div id="pdf-container" style="width: 100%; padding: 30px; box-sizing: border-box; background-color: white; color: black; font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5;">
             
             <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 25px;">CONTRATO DE LOCAÇÃO DE IMÓVEL RESIDENCIAL</h3>
 
@@ -734,17 +734,19 @@ window.gerarContratoPDF = (id) => {
         .replace(/{{DATA_INICIO}}/g, dataInicioFormatada)
         .replace(/{{DATA_FIM}}/g, dataFimFormatada);
 
-    // --- 4. CONFIGURAÇÃO (Janela Virtual de 800px) ---
+    // --- 4. CONFIGURAÇÃO BLINDADA PARA MOBILE ---
     const opt = {
-        margin: [10, 10, 10, 10], // Margem segura (Cima, Dir, Baixo, Esq)
+        margin: [10, 10, 10, 10], 
         filename: `Contrato_${i.inquilino ? i.inquilino.split(' ')[0] : 'Locacao'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
             scale: 2, 
             scrollY: 0,
-            windowWidth: 800, // Simula tela de PC
-            x: 0, 
-            y: 0
+            scrollX: 0,
+            // O SEGREDO: Forçamos a "janela virtual" a ter 800px.
+            // Assim, o conteúdo "width: 100%" se estica até 800px, ficando perfeito.
+            windowWidth: 800,
+            width: 800 
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
