@@ -1,0 +1,16 @@
+{
+  "name": "NJ Imóveis - Gestão",
+  "short_name": "NJ Imóveis",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d6efd",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

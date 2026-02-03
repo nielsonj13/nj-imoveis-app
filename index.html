@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NJ Imóveis - Manager</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    
+    <link rel="icon" type="image/png" href="icon.png">
+    
+    <link rel="apple-touch-icon" href="icon.png">
+</head>
+<body>
+
+    <div id="loginContainer" class="login-wrapper">
+        <div class="login-card text-center">
+            <h3 class="fw-bold text-primary mb-4"><i class="bi bi-buildings-fill"></i> NJ Imóveis</h3>
+            <form id="formLogin">
+                <div class="form-floating mb-3">
+                    <input type="email" class="form-control" id="emailLogin" placeholder="E-mail" required>
+                    <label>E-mail</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <input type="password" class="form-control" id="senhaLogin" placeholder="Senha" required>
+                    <label>Senha</label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-bold">Acessar Sistema</button>
+                <p id="msgErroLogin" class="text-danger mt-3 small" style="display:none;"></p>
+            </form>
+        </div>
+    </div>
+
+    <div id="appContainer">
+        <nav class="navbar navbar-dark bg-primary shadow-sm py-3 mb-4">
+            <div class="container">
+                <span class="navbar-brand fw-bold">NJ Imóveis</span>
+                
+                <div class="d-flex gap-3 align-items-center">
+                    
+                    <button class="btn btn-outline-light border-0" onclick="window.exportarExcel()" title="Baixar Backup Excel">
+                        <i class="bi bi-file-earmark-spreadsheet-fill fs-5"></i>
+                    </button>
+
+                    <button class="btn btn-primary position-relative p-0" style="width: 40px; height: 40px" onclick="window.abrirNotificacoes()" title="Ver Cobranças">
+                        <i class="bi bi-bell-fill fs-5"></i>
+                        <span class="badge bg-danger notification-badge" id="badgeNotificacao">0</span>
+                    </button>
+                    
+                    <button class="btn btn-outline-light rounded-circle" onclick="window.alternarTema()"><i class="bi bi-moon-stars-fill" id="iconeTema"></i></button>
+                    <div class="vr bg-light opacity-50"></div>
+                    <button class="btn btn-sm btn-light fw-bold" onclick="window.fazerLogout()">Sair</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container pb-5">
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card dash-card p-3 d-flex flex-row align-items-center gap-3">
+                        <div class="dash-icon bg-success bg-opacity-10 text-success"><i class="bi bi-cash"></i></div>
+                        <div><small class="text-muted fw-bold">RECEITA</small><h4 class="m-0" id="dashReceita">R$ 0</h4></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card dash-card p-3 d-flex flex-row align-items-center gap-3">
+                        <div class="dash-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-pie-chart"></i></div>
+                        <div><small class="text-muted fw-bold">OCUPAÇÃO</small><h4 class="m-0" id="dashOcupacao">0%</h4></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card dash-card p-3 d-flex flex-row align-items-center gap-3">
+                        <div class="dash-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-graph-down"></i></div>
+                        <div><small class="text-muted fw-bold">PERDA</small><h4 class="m-0 text-danger" id="dashPerdido">R$ 0</h4></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-bar p-3 mb-4">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="small text-muted fw-bold">Status</label>
+                        <select id="filtroStatus" class="form-select border-0 bg-light" onchange="window.aplicarFiltros()">
+                            <option value="todos">Todos</option>
+                            <option value="livre">Livres</option>
+                            <option value="alugado">Alugados</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small text-muted fw-bold">Cidade</label>
+                        <select id="filtroCidade" class="form-select border-0 bg-light" onchange="window.aplicarFiltros()">
+                            <option value="todas">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small text-muted fw-bold">Buscar Inquilino</label>
+                        <input type="text" id="filtroInquilino" class="form-control border-0 bg-light" placeholder="Nome..." onkeyup="window.aplicarFiltros()">
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check pt-2">
+                            <input class="form-check-input" type="checkbox" id="filtroAtrasados" onchange="window.aplicarFiltros()">
+                            <label class="form-check-label small fw-bold text-danger" for="filtroAtrasados">Só Atrasados</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mb-3">
+                <span class="text-muted" id="contadorResultados">Carregando...</span>
+                <button class="btn btn-primary rounded-pill px-4" onclick="window.abrirFormularioNovo()">+ Novo Imóvel</button>
+            </div>
+
+            <div id="listaImoveis" class="row g-4">
+                <div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDetalhes" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0">
+                <div class="modal-body p-0">
+                    <div id="detalheCapa" class="detail-hero" style="height: 350px; background-size: cover; position: relative;">
+                        <div class="detail-overlay" style="position: absolute; bottom:0; left:0; right:0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding: 20px; color: white;">
+                            <span class="badge bg-primary mb-2" id="detalheTipo">Tipo do Imóvel</span>
+                            <h2 class="fw-bold mb-0" id="detalheNome">Nome</h2>
+                            <p class="mb-0 opacity-75"><i class="bi bi-geo-alt me-1"></i><span id="detalheEndereco">Endereço</span></p>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3 p-2 bg-white rounded-circle opacity-100" data-bs-dismiss="modal"></button>
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="d-flex gap-4 mb-4 border-bottom pb-4 text-secondary">
+                                    <div title="Quartos"><i class="bi bi-door-closed fs-4 d-block mb-1"></i> <span id="detalheQuartos" class="fw-bold text-dark">-</span> <small>quartos</small></div>
+                                    <div title="Banheiros"><i class="bi bi-droplet fs-4 d-block mb-1"></i> <span id="detalheBanheiros" class="fw-bold text-dark">-</span> <small>banhos</small></div>
+                                    <div title="Vagas"><i class="bi bi-car-front fs-4 d-block mb-1"></i> <span id="detalheVagas" class="fw-bold text-dark">-</span> <small>vagas</small></div>
+                                    <div title="Área"><i class="bi bi-arrows-angle-expand fs-4 d-block mb-1"></i> <span id="detalheArea" class="fw-bold text-dark">-</span> <small>m²</small></div>
+                                </div>
+
+                                <h5 class="fw-bold text-dark mb-2">Sobre o imóvel</h5>
+                                <p class="text-muted" id="detalheDescricao" style="white-space: pre-line;">Nenhuma descrição informada.</p>
+                                
+                                <hr class="my-4">
+
+                                <div id="areaInquilinoDetalhe" class="d-none bg-light p-3 rounded border border-warning">
+                                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-check-fill me-2"></i>Locação Ativa</h6>
+                                    
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Inquilino</small>
+                                            <div class="fw-bold text-truncate" id="detalheInquilinoNome">-</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Vencimento</small>
+                                            <div class="fw-bold text-danger">Dia <span id="detalheVencimento">-</span></div>
+                                        </div>
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">Contato</small>
+                                            <div><i class="bi bi-whatsapp text-success me-1"></i> <span id="detalheInquilinoTel">-</span></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-success fw-bold py-2" id="btnDetalheZap">
+                                            <i class="bi bi-whatsapp me-2"></i>Cobrar Aluguel
+                                        </button>
+
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-dark flex-grow-1" id="btnGerarContrato" style="font-size: 0.9rem;">
+                                                <i class="bi bi-file-earmark-pdf-fill me-1"></i>Contrato
+                                            </button>
+                                            
+                                            <button class="btn btn-outline-secondary flex-grow-1" id="btnDetalheAdiar" style="font-size: 0.9rem;">
+                                                <i class="bi bi-eye-slash me-1"></i>Ignorar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="card shadow-sm border-0">
+                                    <div class="card-body">
+                                        <small class="text-muted fw-bold text-uppercase">Valor do Aluguel</small>
+                                        <h3 class="fw-bold text-primary mb-3" id="detalheValor">R$ 0,00</h3>
+                                        
+                                        <div class="d-grid gap-2">
+                                            <button class="btn btn-primary fw-bold" id="btnDetalheLocacao">Registrar Locação</button>
+                                            <button class="btn btn-outline-secondary btn-sm mt-2" id="btnDetalheEditar"><i class="bi bi-pencil me-2"></i>Editar Tudo</button>
+                                            <button class="btn btn-link text-danger btn-sm text-decoration-none" id="btnDetalheExcluir">Excluir Imóvel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalFormulario" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-primary" id="tituloFormulario">Cadastrar Propriedade</h5>
+                    <button type="button" class="btn-close" onclick="window.fecharFormulario()"></button>
+                </div>
+                <div class="modal-body pt-3">
+                    <form id="formImovel">
+                        <input type="hidden" id="idEdicao">
+                        <input type="hidden" id="urlFotoAtual">
+                        
+                        <div class="mb-3">
+                            <label class="form-label small text-muted fw-bold">Foto de Capa</label>
+                            <input type="file" id="inputFoto" class="form-control" accept="image/*">
+                            <div id="previewContainer" style="display:none; margin-top: 10px;">
+                                <img src="" id="previewFoto" class="img-fluid rounded border" style="width: 100%; height: 250px; object-fit: cover;">
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="small text-muted fw-bold">Apelido do Imóvel</label>
+                                <input type="text" id="nome" placeholder="Ex: Apto Centro" class="form-control" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="small text-muted fw-bold">Tipo</label>
+                                <select id="tipoImovel" class="form-select" required>
+                                    <option value="" selected disabled>Selecione...</option>
+                                    <option value="Casa">Casa</option>
+                                    <option value="Apartamento">Apartamento</option>
+                                    <option value="Kitnet">Kitnet / Studio</option>
+                                    <option value="Sobrado">Sobrado</option>
+                                    <option value="Sítio">Sítio / Chácara</option>
+                                    <option value="Loja">Ponto Comercial</option>
+                                    <option value="Galpão">Galpão</option>
+                                    <option value="Terreno">Terreno</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="small text-muted fw-bold">Valor Aluguel (R$)</label>
+                                <input type="number" id="valor" step="0.01" placeholder="0,00" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-light rounded mb-3">
+                            <h6 class="text-primary small fw-bold mb-2"><i class="bi bi-grid-3x3-gap me-1"></i>Características</h6>
+                            <div class="row g-2">
+                                <div class="col-3"><label class="small text-muted">Quartos</label><input type="number" id="qtdQuartos" class="form-control form-control-sm" placeholder="0"></div>
+                                <div class="col-3"><label class="small text-muted">Banheiros</label><input type="number" id="qtdBanheiros" class="form-control form-control-sm" placeholder="0"></div>
+                                <div class="col-3"><label class="small text-muted">Vagas</label><input type="number" id="qtdVagas" class="form-control form-control-sm" placeholder="0"></div>
+                                <div class="col-3"><label class="small text-muted">Área (m²)</label><input type="number" id="areaTotal" class="form-control form-control-sm" placeholder="0"></div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="small text-muted fw-bold">Descrição / Observações</label>
+                            <textarea id="descricao" class="form-control" rows="3" placeholder="Ex: Sol da manhã, armários embutidos, reformado..."></textarea>
+                        </div>
+                        
+                        <hr class="text-muted opacity-25">
+                        
+                        <h6 class="text-muted small fw-bold mb-2"><i class="bi bi-geo-alt-fill me-1"></i>Localização</h6>
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <input type="text" id="cep" placeholder="CEP" class="form-control" maxlength="9" onblur="window.buscarCep(this.value)">
+                            </div>
+                            <div class="col-md-7">
+                                <input type="text" id="logradouro" placeholder="Rua" class="form-control">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" id="uf" placeholder="UF" class="form-control fw-bold bg-light" readonly>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" id="numero" placeholder="Nº" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="text" id="bairro" placeholder="Bairro" class="form-control">
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" id="cidade" placeholder="Cidade" class="form-control">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mt-4 fw-bold" id="btnSalvar">Salvar Imóvel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAlugar" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-primary">Registrar Locação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-4">
+                    <input type="hidden" id="imovelIdParaAlugar">
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold small text-muted">Nome Completo</label>
+                        <input type="text" class="form-control" id="nomeInquilino" placeholder="Ex: João da Silva">
+                    </div>
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">CPF</label>
+                            <input type="text" class="form-control" id="cpfInquilino" placeholder="000.000.000-00" maxlength="14" oninput="mascaraCPF(this)">
+                        </div>
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">RG</label>
+                            <input type="text" class="form-control" id="rgInquilino" placeholder="Números" maxlength="15">
+                        </div>
+                    </div>
+
+                    <<div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label class="fw-bold small text-muted">WhatsApp</label>
+                            <input type="tel" class="form-control" id="telInquilino" placeholder="(00) 00000-0000" maxlength="15" oninput="mascaraTelefone(this)">
+                        </div>
+                        <div class="col-4">
+                            <label class="fw-bold small text-muted">Dia Venc.</label>
+                            <input type="number" class="form-control" id="diaVencimento" placeholder="Dia" oninput="validarDia(this)">
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">Início do Contrato</label>
+                            <input type="date" class="form-control" id="dataInicioContrato">
+                        </div>
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">Duração</label>
+                            <select class="form-select" id="prazoContrato">
+                                <option value="6">6 Meses</option>
+                                <option value="12" selected>12 Meses(1 ano)</option>
+                                <option value="18">18 Meses (1 ano e meio)</option>
+                                <option value="24">24 Meses (2 anos)</option>
+                                <option value="30">30 Meses (2 anos e meio)</option>
+                                <option value="36">36 Meses(3 anos)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="window.confirmarLocacao()" class="btn btn-primary w-100 fw-bold">Salvar Locação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalNotificacoes" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-bell-fill me-2 text-danger"></i>Cobranças Pendentes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-4">
+                    <p class="text-muted small mb-3">Inquilinos pendentes neste mês:</p>
+                    <div id="listaNotificacoes" class="d-flex flex-column gap-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
