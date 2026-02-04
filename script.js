@@ -615,7 +615,7 @@ window.gerarContratoPDF = (id) => {
     if (!item) return;
     const i = item.data;
 
-    // --- 1. DADOS (Igual a antes) ---
+    // --- 1. CÁLCULO DE DATAS ---
     let dtInicioObj = i.dataInicio ? new Date(i.dataInicio + 'T00:00:00') : new Date();
     const diaI = String(dtInicioObj.getDate()).padStart(2, '0');
     const mesI = String(dtInicioObj.getMonth() + 1).padStart(2, '0');
@@ -635,53 +635,95 @@ window.gerarContratoPDF = (id) => {
     const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
 
-    // --- 2. MONTAGEM DO HTML (Direto na DIV de impressão) ---
+    // --- 2. MONTAGEM DO SEU CONTRATO EXATO ---
     const areaImpressao = document.getElementById('area-impressao');
     
     areaImpressao.innerHTML = `
-        <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 30px;">CONTRATO DE LOCAÇÃO RESIDENCIAL</h3>
+        <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 30px;">CONTRATO DE LOCAÇÃO DE IMÓVEL RESIDENCIAL</h3>
 
         <p style="text-align: justify; margin-bottom: 15px;">
-            <strong>LOCATÁRIO:</strong> <strong>${(i.inquilino || "___").toUpperCase()}</strong>, portador do RG <strong>${i.rg || "___"}</strong> e CPF <strong>${i.cpf || "___"}</strong>.
+            <strong>LOCATÁRIO:</strong> <strong>${(i.inquilino || "___").toUpperCase()}</strong>, brasileiro(a), portador da cédula de identidade R.G. nº <strong>${i.rg || "___"}</strong> e CPF nº <strong>${i.cpf || "___"}</strong>.
         </p>
+
         <p style="text-align: justify; margin-bottom: 15px;">
-            <strong>LOCADOR:</strong> NIELSON FLORÊNCIO DA SILVA, portador do RG 6461460 SDS-PE e CPF 046.304.114-37.
+            <strong>LOCADOR:</strong> NIELSON FLORÊNCIO DA SILVA, brasileiro, casado, portador da cédula de identidade R.G. n.º 6461460 SDS-PE e CPF n.º 046.304.114-37, residente e domiciliado em Palmares-PE.
         </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 1:</strong> Imóvel situado à <strong>${(i.endereco.completo || i.endereco).toUpperCase()}</strong>.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA PRIMEIRA:</strong> O objeto deste contrato de locação é o imóvel residencial, situado à <strong>${(i.endereco.completo || i.endereco).toUpperCase()}</strong>.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 2:</strong> Prazo de <strong>${mesesDuracao} meses</strong>, de <strong>${dataInicioFormatada}</strong> a <strong>${dataFimFormatada}</strong>.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA SEGUNDA:</strong> O prazo da locação é de <strong>${mesesDuracao} meses</strong>, iniciando-se em <strong>${dataInicioFormatada}</strong> com término em <strong>${dataFimFormatada}</strong>, independentemente de aviso, notificação ou interpelação judicial ou mesmo extrajudicial.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 3:</strong> Aluguel de <strong>${valorFormatado}</strong>, vencimento dia <strong>${i.diaVencimento}</strong>.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA TERCEIRA:</strong> O aluguel mensal, deverá ser pago até o dia <strong>${i.diaVencimento}</strong> do mês subsequente ao vencido, no local indicado pelo LOCADOR, no valor de <strong>${valorFormatado}</strong>.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 4:</strong> O locatário é responsável por luz e água.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA QUARTA:</strong> O LOCATÁRIO será responsável por todos os tributos incidentes sobre o imóvel: Contas de luz, de água que serão pagas diretamente às empresas concessionárias dos referidos serviços.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 5:</strong> Multa de 2% e juros de 1% em caso de atraso.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA QUINTA:</strong> Em caso de mora no pagamento do aluguel, será aplicada multa de 2% (dois por cento) sobre o valor devido e juros mensais de 1% (um por cento) do montante devido.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 6:</strong> O imóvel deve ser devolvido nas mesmas condições de pintura.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA SEXTA:</strong> Fica ao LOCATÁRIO, a responsabilidade em zelar pela conservação, limpeza do imóvel, efetuando as reformas necessárias para sua manutenção sendo que os gastos e pagamentos decorrentes da mesma, correrão por conta do mesmo. O LOCATÁRIO está obrigado a devolver o imóvel em perfeitas condições de limpeza, conservação e pintura, quando finda ou rescindida esta avença, conforme constante no termo de vistoria em anexo. O LOCATÁRIO não poderá realizar obras que alterem ou modifiquem a estrutura do imóvel locado, sem prévia autorização por escrito da LOCADORA. Caso este consinta na realização das obras, estas ficarão desde logo, incorporadas ao imóvel, sem que assista ao LOCATÁRIO qualquer indenização pelas obras ou retenção por benfeitorias. As benfeitorias removíveis poderão ser o retiradas, desde que não desfigurem o imóvel locado.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 7:</strong> Uso exclusivamente residencial.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>PARÁGRAFO ÚNICO:</strong> O LOCATÁRIO declara receber o imóvel em perfeito estado de conservação e perfeito funcionamento devendo observar o que consta no termo de vistoria.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 10px;"><strong>CLÁUSULA 8:</strong> Proibida sublocação sem autorização.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA SÉTIMA:</strong> O LOCATÁRIO declara, que o imóvel ora locado, destina-se única e exclusivamente para o seu uso residencial e de sua família.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 20px;"><strong>CLÁUSULA 9:</strong> Foro da Cidade de Palmares-PE.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA OITAVA:</strong> O LOCATÁRIO não poderá sublocar, transferir ou ceder o imóvel, sendo nulo de pleno direito qualquer ato praticado com este fim sem o consentimento prévio e por escrito do LOCADOR.
+        </p>
 
-        <p style="text-align: justify; margin-bottom: 40px;">E, por estarem justos e contratados, assinam o presente.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA NONA:</strong> Em caso de sinistro parcial ou total do prédio, que impossibilite a habitação o imóvel locado, o presente contrato estará rescindido, independentemente de aviso ou interpelação judicial ou extrajudicial; no caso de incêndio parcial, obrigando a obras de reconstrução, o presente contrato terá suspensa a sua vigência e reduzida a renda do imóvel durante o período da reconstrução à metade do que na época for o aluguel, e sendo após a reconstrução devolvido o LOCATÁRIO pelo prazo restante do contrato, que ficará prorrogado pelo mesmo tempo de duração das obras de reconstrução.
+        </p>
 
-        <p style="text-align: right; margin-bottom: 60px;">Palmares-PE, ${dataExtenso}.</p>
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA DÉCIMA:</strong> É facultado ao LOCADOR vistoriar, por si ou seus procuradores, sempre que achar conveniente, para a certeza do cumprimento das obrigações assumidas neste contrato.
+        </p>
+
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA DÉCIMA PRIMEIRA:</strong> A infração de qualquer das cláusulas do presente contrato, sujeita o infrator à multa de duas vezes o valor do aluguel, tomando-se por base, o último aluguel vencido.
+        </p>
+
+        <p style="text-align: justify; margin-bottom: 10px;">
+            <strong>CLÁUSULA DÉCIMA SEGUNDA:</strong> As partes contratantes obrigam-se por si, herdeiros e/ou sucessores, elegendo o Foro da Cidade de Palmares-PE, para a propositura de qualquer ação.
+        </p>
+
+        <p style="text-align: justify; margin-bottom: 30px;">
+            E, por assim estarem justos e contratados assinam o presente instrumento em duas (02) vias, para um só efeito, assinando-as, juntamente com as testemunhas.
+        </p>
+
+        <p style="text-align: right; margin-bottom: 50px;">Palmares-PE, ${dataExtenso}.</p>
         
-        <div style="display: flex; justify-content: space-between; gap: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 50px;">
             <div style="text-align: center; width: 45%; border-top: 1px solid #000; padding-top: 5px;">
-                <strong>NIELSON FLORENCIO</strong><br>Locador
+                <strong>NIELSON FLORENCIO DA SILVA</strong><br>Locador
             </div>
             <div style="text-align: center; width: 45%; border-top: 1px solid #000; padding-top: 5px;">
-                <strong>${(i.inquilino || "___").toUpperCase().split(' ')[0]}</strong><br>Locatário
+                <strong>${(i.inquilino || "___").toUpperCase()}</strong><br>Locatário
             </div>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <p>Testemunhas:</p>
+            <div style="border-bottom: 1px solid #000; width: 100%; height: 30px; margin-bottom: 20px;"></div>
+            <div style="border-bottom: 1px solid #000; width: 100%; height: 30px;"></div>
         </div>
     `;
 
     // --- 3. ACIONA A IMPRESSÃO NATIVA ---
-    // Pequeno delay para garantir que o celular renderizou o texto antes de abrir a janela
     setTimeout(() => {
         window.print();
     }, 500);
