@@ -202,25 +202,31 @@ window.abrirDetalhes = (id) => {
         const btnContrato = document.getElementById('btnGerarContrato');
         if(btnContrato) btnContrato.onclick = () => window.gerarContratoPDF(id);
 
-        // 3. Configura Botão IGNORAR (Agora estático e organizado)
+        // --- NOVO: Configura Botão RECIBO ---
+        const btnRecibo = document.getElementById('btnGerarRecibo');
+        if(btnRecibo) btnRecibo.onclick = () => window.gerarReciboPDF(id);
+
+        // 3. Configura Botão IGNORAR
         const btnAdiar = document.getElementById('btnDetalheAdiar');
         const mesAtual = new Date().getMonth();
         
-        // Se já ignorou este mês, esconde o botão. Se não, mostra.
         if(i.ignorarAtrasoMes === mesAtual) {
             btnAdiar.classList.add('d-none'); 
-            // Opcional: Expandir o botão de contrato se o adiar sumir
-            btnContrato.classList.remove('flex-grow-1');
-            btnContrato.classList.add('w-100');
+            if(btnContrato) {
+                btnContrato.classList.remove('flex-grow-1');
+                btnContrato.classList.add('w-100');
+            }
         } else {
             btnAdiar.classList.remove('d-none');
-            btnContrato.classList.add('flex-grow-1');
-            btnContrato.classList.remove('w-100');
+            if(btnContrato) {
+                btnContrato.classList.add('flex-grow-1');
+                btnContrato.classList.remove('w-100');
+            }
             
             btnAdiar.onclick = async () => {
                 if(confirm("Remover este imóvel da lista de pendências deste mês?")) {
                     await updateDoc(doc(db, "imoveis", id), { ignorarAtrasoMes: mesAtual });
-                    modalDetalhes.hide(); // Fecha para atualizar listas
+                    modalDetalhes.hide();
                 }
             };
         }
@@ -231,7 +237,6 @@ window.abrirDetalhes = (id) => {
         btnLocacao.onclick = () => { modalDetalhes.hide(); window.gerenciarLocacao(id, true); };
     
     } else {
-        // Se estiver livre, esconde tudo
         areaInq.classList.add('d-none');
         btnLocacao.innerText = "Registrar Locação";
         btnLocacao.className = "btn btn-primary w-100 fw-bold";
@@ -244,6 +249,7 @@ window.abrirDetalhes = (id) => {
 
     modalDetalhes.show();
 }
+
 // --- SALVAR IMÓVEL (CRIAR OU EDITAR) ---
 document.getElementById('formImovel').addEventListener('submit', async (e) => {
     e.preventDefault(); // Impede recarregamento da página
@@ -806,6 +812,53 @@ window.gerarContratoPDF = (id) => {
     // --- 3. GERA E BAIXA O PDF ---
     pdfMake.createPdf(docDefinition).download(`Contrato_${i.inquilino ? i.inquilino.split(' ')[0] : 'Locacao'}.pdf`);
 }
+
+// --- FUNÇÃO GERADORA DE RECIBO ---
+window.gerarReciboPDF = (id) => {
+    const item = todosImoveis.find(i => i.id === id);
+    if (!item) return;
+    const i = item.data;
+
+    const dataHoje = new Date();
+    const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
+    
+    // Define o mês de referência (mês atual)
+    const mesReferencia = dataHoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+
+    const docDefinition = {
+        pageSize: 'A5', // Recibo costuma ser menor
+        pageOrientation: 'landscape',
+        content: [
+            { text: 'RECIBO DE ALUGUEL', style: 'header' },
+            { text: `VALOR: ${valorFormatado}`, style: 'valorBox' },
+            
+            { 
+                text: [
+                    'Recebi de ', { text: (i.inquilino || "___").toUpperCase(), bold: true },
+                    ', a quantia supra de ', { text: valorFormatado, bold: true },
+                    ` referente ao aluguel do imóvel situado em: `,
+                    { text: (i.endereco.completo || i.endereco).toUpperCase(), bold: true },
+                    ` correspondente ao mês de `, { text: mesReferencia, bold: true }, '.'
+                ], 
+                margin: [0, 20, 0, 20],
+                lineHeight: 1.5
+            },
+
+            { text: `Palmares-PE, ${dataExtenso}.`, alignment: 'right', margin: [0, 0, 0, 30] },
+
+            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 1 }], alignment: 'center', margin: [0, 100, 0, 0] },
+            { text: 'NIELSON FLORÊNCIO DA SILVA', bold: true, alignment: 'center', fontSize: 10 },
+            { text: 'CPF: 046.304.114-37', alignment: 'center', fontSize: 9 }
+        ],
+        styles: {
+            header: { fontSize: 18, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+            valorBox: { fontSize: 14, bold: true, alignment: 'right', background: '#f3f4f6', padding: 5 }
+        }
+    };
+
+    pdfMake.createPdf(docDefinition).download(`Recibo_${i.inquilino.split(' ')[0]}_${mesReferencia}.pdf`);
+};
 
 // --- MÁSCARAS DE INPUT (FORMATAÇÃO AUTOMÁTICA) ---
 
