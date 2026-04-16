@@ -204,7 +204,31 @@ window.abrirDetalhes = (id) => {
 
         // --- NOVO: Configura Botão RECIBO ---
         const btnRecibo = document.getElementById('btnGerarRecibo');
-        if(btnRecibo) btnRecibo.onclick = () => window.gerarReciboPDF(id);
+        if(btnRecibo) {
+            btnRecibo.onclick = () => {
+                document.getElementById('idImovelRecibo').value = id;
+                // Define o mês atual como padrão no input
+                const hoje = new Date().toISOString().slice(0, 7);
+                document.getElementById('mesReferenciaRecibo').value = hoje;
+                new bootstrap.Modal(document.getElementById('modalEscolherMes')).show();
+            };
+        }
+
+        // Nova função para processar a escolha
+        window.processarReciboManual = () => {
+            const id = document.getElementById('idImovelRecibo').value;
+            const dataEscolhida = document.getElementById('mesReferenciaRecibo').value; // Formato "YYYY-MM"
+            
+            if(!dataEscolhida) return alert("Selecione o mês!");
+
+            const [ano, mes] = dataEscolhida.split('-');
+            // Cria uma data fake no dia 15 para evitar erros de fuso horário
+            const dataRef = new Date(ano, mes - 1, 15);
+            const mesExtenso = dataRef.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+
+            bootstrap.Modal.getInstance(document.getElementById('modalEscolherMes')).hide();
+            window.gerarReciboPDF(id, mesExtenso);
+        };
 
         // 3. Configura Botão IGNORAR
         const btnAdiar = document.getElementById('btnDetalheAdiar');
@@ -813,22 +837,25 @@ window.gerarContratoPDF = (id) => {
     pdfMake.createPdf(docDefinition).download(`Contrato_${i.inquilino ? i.inquilino.split(' ')[0] : 'Locacao'}.pdf`);
 }
 
-// --- FUNÇÃO GERADORA DE RECIBO ---
-window.gerarReciboPDF = (id) => {
+// --- FUNÇÃO GERADORA DE RECIBO (NJ IMÓVEIS) ---
+window.gerarReciboPDF = (id, mesManual = null) => {
     const item = todosImoveis.find(i => i.id === id);
     if (!item) return;
     const i = item.data;
 
     const dataHoje = new Date();
+    // Formata a data atual para o final do recibo (Ex: 16 de abril de 2026)
     const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
     
-    // Define o mês de referência (mês atual)
-    const mesReferencia = dataHoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+    // LÓGICA DE MÊS: Se você passou um mês específico (via modal), usa ele. 
+    // Caso contrário, usa o mês atual do sistema.
+    const mesReferencia = mesManual || dataHoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
 
     const docDefinition = {
-        pageSize: 'A5', // Recibo costuma ser menor
+        pageSize: 'A5', 
         pageOrientation: 'landscape',
+        pageMargins: [40, 40, 40, 40],
         content: [
             { text: 'RECIBO DE ALUGUEL', style: 'header' },
             { text: `VALOR: ${valorFormatado}`, style: 'valorBox' },
@@ -842,22 +869,35 @@ window.gerarReciboPDF = (id) => {
                     ` correspondente ao mês de `, { text: mesReferencia, bold: true }, '.'
                 ], 
                 margin: [0, 20, 0, 20],
-                lineHeight: 1.5
+                lineHeight: 1.5,
+                fontSize: 11
             },
 
-            { text: `Palmares-PE, ${dataExtenso}.`, alignment: 'right', margin: [0, 0, 0, 30] },
+            { text: `Palmares-PE, ${dataExtenso}.`, alignment: 'right', margin: [0, 0, 0, 10] },
 
-            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 1 }], alignment: 'center', margin: [0, 100, 0, 0] },
-            { text: 'NIELSON FLORÊNCIO DA SILVA', bold: true, alignment: 'center', fontSize: 10 },
-            { text: 'CPF: 046.304.114-37', alignment: 'center', fontSize: 9 }
+            // ÁREA DA ASSINATURA: Com margem superior de 100 para dar bastante espaço
+            { 
+                canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 1 }], 
+                alignment: 'center', 
+                margin: [0, 100, 0, 0] 
+            },
+            { text: 'NIELSON FLORÊNCIO DA SILVA', bold: true, alignment: 'center', fontSize: 10, margin: [0, 5, 0, 0] },
+            { text: 'Locador', alignment: 'center', fontSize: 9 }
         ],
         styles: {
             header: { fontSize: 18, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
-            valorBox: { fontSize: 14, bold: true, alignment: 'right', background: '#f3f4f6', padding: 5 }
+            valorBox: { 
+                fontSize: 14, 
+                bold: true, 
+                alignment: 'right', 
+                background: '#f3f4f6', 
+                padding: 8 
+            }
         }
     };
 
-    pdfMake.createPdf(docDefinition).download(`Recibo_${i.inquilino.split(' ')[0]}_${mesReferencia}.pdf`);
+    // Gera o PDF e inicia o download com o nome do inquilino e mês de referência
+    pdfMake.createPdf(docDefinition).download(`Recibo_${i.inquilino.split(' ')[0]}_${mesReferencia.replace(/ /g, '_')}.pdf`);
 };
 
 // --- MÁSCARAS DE INPUT (FORMATAÇÃO AUTOMÁTICA) ---

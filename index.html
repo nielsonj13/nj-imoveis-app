@@ -180,7 +180,7 @@
                                             </button>
 
                                             <button class="btn btn-primary flex-grow-1" id="btnGerarRecibo" style="font-size: 0.9rem;">
-                                                <i class="bi bi-receipt me-1"></i>Gerar Recibo
+                                                <i class="bi bi-receipt me-1"></i>Recibo
                                             </button>
                                             
                                             <button class="btn btn-outline-secondary flex-grow-1" id="btnDetalheAdiar" style="font-size: 0.9rem;">
@@ -374,6 +374,25 @@
                 <div class="modal-body pt-4">
                     <p class="text-muted small mb-3">Inquilinos pendentes neste mês:</p>
                     <div id="listaNotificacoes" class="d-flex flex-column gap-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalEscolherMes" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-bold">Mês de Referência</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="idImovelRecibo">
+                    <div class="mb-3">
+                        <label class="small text-muted">Mês/Ano</label>
+                        <input type="month" id="mesReferenciaRecibo" class="form-control">
+                    </div>
+                    <button onclick="window.processarReciboManual()" class="btn btn-primary w-100 fw-bold">Gerar PDF</button>
                 </div>
             </div>
         </div>
