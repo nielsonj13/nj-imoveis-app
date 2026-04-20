@@ -185,7 +185,7 @@ window.abrirDetalhes = (id) => {
         capa.style.backgroundColor = '#64748b';
     }
 
-    // --- LÓGICA DO INQUILINO E BOTÕES ---
+    // --- LÓGICA DO INQUILINO E BOTÕES DE OPERAÇÃO ---
     const areaInq = document.getElementById('areaInquilinoDetalhe');
     const btnLocacao = document.getElementById('btnDetalheLocacao');
     
@@ -195,67 +195,42 @@ window.abrirDetalhes = (id) => {
         document.getElementById('detalheInquilinoTel').innerText = i.telefone || '-';
         document.getElementById('detalheVencimento').innerText = i.diaVencimento;
         
-        // 1. Configura Botão ZAP
+        // 1. Botão WhatsApp
         document.getElementById('btnDetalheZap').onclick = () => window.cobrarNoZap(i.inquilino, i.telefone, i.nome, i.diaVencimento);
         
-        // 2. Configura Botão CONTRATO
+        // 2. Botão Contrato
         const btnContrato = document.getElementById('btnGerarContrato');
         if(btnContrato) btnContrato.onclick = () => window.gerarContratoPDF(id);
 
-        // --- NOVO: Configura Botão RECIBO ---
+        // 3. Botão Recibo (Abre modal de escolha de mês)
         const btnRecibo = document.getElementById('btnGerarRecibo');
         if(btnRecibo) {
             btnRecibo.onclick = () => {
                 document.getElementById('idImovelRecibo').value = id;
-                // Define o mês atual como padrão no input
                 const hoje = new Date().toISOString().slice(0, 7);
                 document.getElementById('mesReferenciaRecibo').value = hoje;
                 new bootstrap.Modal(document.getElementById('modalEscolherMes')).show();
             };
         }
 
-        // Nova função para processar a escolha
-        window.processarReciboManual = () => {
-            const id = document.getElementById('idImovelRecibo').value;
-            const dataEscolhida = document.getElementById('mesReferenciaRecibo').value; // Formato "YYYY-MM"
-            
-            if(!dataEscolhida) return alert("Selecione o mês!");
-
-            const [ano, mes] = dataEscolhida.split('-');
-            // Cria uma data fake no dia 15 para evitar erros de fuso horário
-            const dataRef = new Date(ano, mes - 1, 15);
-            const mesExtenso = dataRef.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
-
-            bootstrap.Modal.getInstance(document.getElementById('modalEscolherMes')).hide();
-            window.gerarReciboPDF(id, mesExtenso);
-        };
-
-        // 3. Configura Botão IGNORAR
+        // 4. Botão Ignorar/Adiar Alerta de Atraso
         const btnAdiar = document.getElementById('btnDetalheAdiar');
         const mesAtual = new Date().getMonth();
         
         if(i.ignorarAtrasoMes === mesAtual) {
             btnAdiar.classList.add('d-none'); 
-            if(btnContrato) {
-                btnContrato.classList.remove('flex-grow-1');
-                btnContrato.classList.add('w-100');
-            }
+            if(btnContrato) { btnContrato.classList.remove('flex-grow-1'); btnContrato.classList.add('w-100'); }
         } else {
             btnAdiar.classList.remove('d-none');
-            if(btnContrato) {
-                btnContrato.classList.add('flex-grow-1');
-                btnContrato.classList.remove('w-100');
-            }
-            
+            if(btnContrato) { btnContrato.classList.add('flex-grow-1'); btnContrato.classList.remove('w-100'); }
             btnAdiar.onclick = async () => {
-                if(confirm("Remover este imóvel da lista de pendências deste mês?")) {
+                if(confirm("Remover da lista de pendências deste mês?")) {
                     await updateDoc(doc(db, "imoveis", id), { ignorarAtrasoMes: mesAtual });
                     modalDetalhes.hide();
                 }
             };
         }
 
-        // Configura botão Desocupar
         btnLocacao.innerText = "Desocupar Imóvel";
         btnLocacao.className = "btn btn-outline-danger w-100 fw-bold";
         btnLocacao.onclick = () => { modalDetalhes.hide(); window.gerenciarLocacao(id, true); };
@@ -267,9 +242,31 @@ window.abrirDetalhes = (id) => {
         btnLocacao.onclick = () => { modalDetalhes.hide(); window.gerenciarLocacao(id, false); };
     }
 
-    // Botões de Edição do Imóvel
-    document.getElementById('btnDetalheEditar').onclick = () => { modalDetalhes.hide(); window.prepararEdicao(id); };
-    document.getElementById('btnDetalheExcluir').onclick = () => { if(confirm("Excluir imóvel permanentemente?")) { deleteDoc(doc(db,"imoveis",id)); modalDetalhes.hide(); } };
+    // --- BOTÕES DE GESTÃO DO IMÓVEL (FINAL DO MODAL) ---
+
+    // 1. Editar Imóvel
+    document.getElementById('btnDetalheEditar').onclick = () => { 
+        modalDetalhes.hide(); 
+        window.prepararEdicao(id); 
+    };
+
+    // 2. Histórico de Pagamentos (POSICIONADO ABAIXO DO EDITAR)
+    // Este botão abre o histórico completo do imóvel específico
+    const btnHist = document.getElementById('btnAbrirHistorico');
+    if(btnHist) {
+        btnHist.onclick = () => {
+            // Não precisa esconder o detalhe para ver o histórico, o modal sobrepõe
+            window.abrirHistorico(id);
+        };
+    }
+
+    // 3. Excluir Imóvel
+    document.getElementById('btnDetalheExcluir').onclick = () => { 
+        if(confirm("Excluir permanentemente?")) { 
+            deleteDoc(doc(db,"imoveis",id)); 
+            modalDetalhes.hide(); 
+        } 
+    };
 
     modalDetalhes.show();
 }
@@ -837,27 +834,63 @@ window.gerarContratoPDF = (id) => {
     pdfMake.createPdf(docDefinition).download(`Contrato_${i.inquilino ? i.inquilino.split(' ')[0] : 'Locacao'}.pdf`);
 }
 
-// --- FUNÇÃO GERADORA DE RECIBO (NJ IMÓVEIS) ---
-window.gerarReciboPDF = (id, mesManual = null) => {
+// --- FUNÇÃO GERADORA DE RECIBO COM SEGURANÇA, HISTÓRICO E SEGUNDA VIA (NJ IMÓVEIS) ---
+window.gerarReciboPDF = async (id, mesManual = null) => {
     const item = todosImoveis.find(i => i.id === id);
     if (!item) return;
     const i = item.data;
 
     const dataHoje = new Date();
-    // Formata a data atual para o final do recibo (Ex: 16 de abril de 2026)
-    const dataExtenso = dataHoje.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     const valorFormatado = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
     
-    // LÓGICA DE MÊS: Se você passou um mês específico (via modal), usa ele. 
-    // Caso contrário, usa o mês atual do sistema.
+    // Define o mês de referência
     const mesReferencia = mesManual || dataHoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+
+    // --- LÓGICA DE VERIFICAÇÃO E SEGUNDA VIA ---
+    let authCode;
+    let dataEmissaoDoc;
+    let ehSegundaVia = false;
+    const historico = i.historicoRecibos || {};
+    
+    // Procura se já existe um recibo para este mês no histórico
+    const reciboExistente = Object.entries(historico).find(([code, dados]) => dados.mes === mesReferencia);
+
+    if (reciboExistente) {
+        // Recupera os dados originais
+        authCode = reciboExistente[0];
+        dataEmissaoDoc = new Date(reciboExistente[1].dataEmissao);
+        ehSegundaVia = true;
+    } else {
+        // Se não existe, gera um novo e salva no Firebase
+        authCode = `NJ-${id.substring(0, 4)}-${Date.now().toString().slice(-6)}`.toUpperCase();
+        dataEmissaoDoc = dataHoje;
+        
+        try {
+            await updateDoc(doc(db, "imoveis", id), {
+                [`historicoRecibos.${authCode}`]: {
+                    mes: mesReferencia,
+                    dataEmissao: dataHoje.toISOString(),
+                    valor: i.valor
+                }
+            });
+        } catch (error) {
+            console.error("Erro ao registrar no histórico:", error);
+        }
+    }
+
+    const dataExtenso = dataEmissaoDoc.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     const docDefinition = {
         pageSize: 'A5', 
         pageOrientation: 'landscape',
-        pageMargins: [40, 40, 40, 40],
+        pageMargins: [40, 30, 40, 30],
         content: [
-            { text: 'RECIBO DE ALUGUEL', style: 'header' },
+            { 
+                columns: [
+                    { text: 'RECIBO DE ALUGUEL', style: 'header', alignment: 'left' },
+                    { text: ehSegundaVia ? 'SEGUNDA VIA' : 'VIA ORIGINAL', color: ehSegundaVia ? 'gray' : 'black', fontSize: 8, alignment: 'right', bold: true }
+                ]
+            },
             { text: `VALOR: ${valorFormatado}`, style: 'valorBox' },
             
             { 
@@ -875,17 +908,35 @@ window.gerarReciboPDF = (id, mesManual = null) => {
 
             { text: `Palmares-PE, ${dataExtenso}.`, alignment: 'right', margin: [0, 0, 0, 10] },
 
-            // ÁREA DA ASSINATURA: Com margem superior de 100 para dar bastante espaço
             { 
                 canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 1 }], 
                 alignment: 'center', 
-                margin: [0, 100, 0, 0] 
+                margin: [0, 80, 0, 0] 
             },
             { text: 'NIELSON FLORÊNCIO DA SILVA', bold: true, alignment: 'center', fontSize: 10, margin: [0, 5, 0, 0] },
-            { text: 'Locador', alignment: 'center', fontSize: 9 }
+            { text: 'Locador', alignment: 'center', fontSize: 9 },
+
+            {
+                columns: [
+                    {
+                        qr: authCode,
+                        fit: 50,
+                        alignment: 'left'
+                    },
+                    {
+                        text: [
+                            { text: 'AUTENTICIDADE DIGITAL\n', bold: true, fontSize: 8 },
+                            { text: `Código: ${authCode}\n`, fontSize: 8 },
+                            { text: 'Este documento é idêntico ao registro original em nosso banco de dados.', fontSize: 7, italics: true }
+                        ],
+                        margin: [10, 10, 0, 0]
+                    }
+                ],
+                margin: [0, 20, 0, 0]
+            }
         ],
         styles: {
-            header: { fontSize: 18, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
+            header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
             valorBox: { 
                 fontSize: 14, 
                 bold: true, 
@@ -896,8 +947,123 @@ window.gerarReciboPDF = (id, mesManual = null) => {
         }
     };
 
-    // Gera o PDF e inicia o download com o nome do inquilino e mês de referência
-    pdfMake.createPdf(docDefinition).download(`Recibo_${i.inquilino.split(' ')[0]}_${mesReferencia.replace(/ /g, '_')}.pdf`);
+    const nomeArquivo = `Recibo_${i.inquilino.split(' ')[0]}_${mesReferencia.replace(/ /g, '_')}${ehSegundaVia ? '_2via' : ''}.pdf`;
+    pdfMake.createPdf(docDefinition).download(nomeArquivo);
+};
+
+// Abrir Histórico no Modal
+window.abrirHistorico = (id) => {
+    const item = todosImoveis.find(i => i.id === id);
+    const historico = item.data.historicoRecibos || {};
+    const corpo = document.getElementById('corpoHistorico');
+    corpo.innerHTML = "";
+
+    const entradas = Object.entries(historico).sort((a, b) => new Date(b[1].dataEmissao) - new Date(a[1].dataEmissao));
+
+    if (entradas.length === 0) {
+        corpo.innerHTML = "<tr><td colspan='4' class='text-center text-muted py-4'>Nenhum recibo emitido para este imóvel.</td></tr>";
+    } else {
+        entradas.forEach(([code, dados]) => {
+            corpo.innerHTML += `
+                <tr>
+                    <td><span class="badge bg-light text-dark">${dados.mes}</span></td>
+                    <td>${new Date(dados.dataEmissao).toLocaleDateString()}</td>
+                    <td><small class="text-muted">${code}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary border-0" onclick="window.gerarReciboPDF('${id}', '${dados.mes}')" title="Baixar 2ª Via">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        });
+    }
+    new bootstrap.Modal(document.getElementById('modalHistorico')).show();
+};
+
+// ABRE APENAS A VERIFICAÇÃO (Chamado pelo botão da Navbar)
+window.abrirModalVerificacao = () => {
+    document.getElementById('inputValidarCodigo').value = "";
+    new bootstrap.Modal(document.getElementById('modalVerificacao')).show();
+};
+
+// VALIDAÇÃO UNIVERSAL (Busca em todos os 34 imóveis)
+window.validarCodigoRecibo = () => {
+    const code = document.getElementById('inputValidarCodigo').value.trim().toUpperCase();
+    if (!code) return alert("Digite um código!");
+
+    const imovelAchado = todosImoveis.find(item => item.data.historicoRecibos && item.data.historicoRecibos[code]);
+
+    if (imovelAchado) {
+        const d = imovelAchado.data.historicoRecibos[code];
+        alert(`✅ RECIBO AUTÊNTICO\n\nImóvel: ${imovelAchado.data.nome}\nInquilino: ${imovelAchado.data.inquilino}\nMês: ${d.mes}\nEmitido em: ${new Date(d.dataEmissao).toLocaleString()}`);
+    } else {
+        alert("❌ CÓDIGO INVÁLIDO\nRecibo não reconhecido pelo sistema.");
+    }
+};
+
+// FUNÇÃO QUE PROCESSA A ESCOLHA DO MÊS E CHAMA A GERAÇÃO DO PDF
+window.processarReciboManual = () => {
+    const id = document.getElementById('idImovelRecibo').value;
+    const dataEscolhida = document.getElementById('mesReferenciaRecibo').value; // Captura o valor do input tipo "month"
+    
+    if(!dataEscolhida) return alert("Por favor, selecione o mês e o ano!");
+
+    // Converte "2026-04" para "ABRIL DE 2026"
+    const [ano, mes] = dataEscolhida.split('-');
+    const dataRef = new Date(ano, mes - 1, 15); // Dia 15 para evitar bugs de fuso horário
+    const mesExtenso = dataRef.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+
+    // Fecha o modal de escolha
+    const modalElement = document.getElementById('modalEscolherMes');
+    const modalInstancia = bootstrap.Modal.getInstance(modalElement);
+    if(modalInstancia) modalInstancia.hide();
+
+    // Chama a função principal de gerar o PDF que criamos antes
+    window.gerarReciboPDF(id, mesExtenso);
+};
+
+// FUNÇÃO QUE ABRE A CAMERA PARA VERIFICAÇÃO
+let html5QrCodeScanner = null;
+
+window.iniciarCamera = () => {
+    const btn = document.getElementById('btnIniciarCamera');
+    btn.disabled = true;
+    btn.innerText = "Carregando câmera...";
+
+    html5QrCodeScanner = new Html5Qrcode("reader");
+    
+    const qrCodeSuccessCallback = (decodedText) => {
+        // Quando o QR Code é lido, preenche o campo e valida automaticamente
+        document.getElementById('inputValidarCodigo').value = decodedText;
+        window.pararCamera();
+        window.validarCodigoRecibo();
+    };
+
+    const config = { fps: 10, qrbox: { width: 200, height: 200 } };
+
+    // Tenta iniciar com a câmera traseira (environment)
+    html5QrCodeScanner.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+        .then(() => {
+            btn.style.display = 'none'; // Esconde o botão após iniciar
+        })
+        .catch((err) => {
+            console.error("Erro na câmera:", err);
+            alert("Não foi possível acessar a câmera. Verifique as permissões.");
+            btn.disabled = false;
+            btn.innerText = "Tentar novamente";
+        });
+};
+
+window.pararCamera = () => {
+    if (html5QrCodeScanner) {
+        html5QrCodeScanner.stop().then(() => {
+            document.getElementById('reader').innerHTML = "";
+            const btn = document.getElementById('btnIniciarCamera');
+            btn.style.display = 'block';
+            btn.disabled = false;
+            btn.innerText = "Escanear QR Code";
+        }).catch(err => console.error(err));
+    }
 };
 
 // --- MÁSCARAS DE INPUT (FORMATAÇÃO AUTOMÁTICA) ---
