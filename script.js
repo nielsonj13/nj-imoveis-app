@@ -996,29 +996,69 @@ window.confirmarRenovacao = async () => {
 // Abrir Histórico no Modal
 window.abrirHistorico = (id) => {
     const item = todosImoveis.find(i => i.id === id);
-    const historico = item.data.historicoRecibos || {};
-    const corpo = document.getElementById('corpoHistorico');
-    corpo.innerHTML = "";
+    if (!item) return;
 
-    const entradas = Object.entries(historico).sort((a, b) => new Date(b[1].dataEmissao) - new Date(a[1].dataEmissao));
+    // 1. Pegamos os dados do Firebase
+    const recibos = item.data.historicoRecibos || {};
+    const contratos = item.data.historicoContratos || {};
 
-    if (entradas.length === 0) {
-        corpo.innerHTML = "<tr><td colspan='4' class='text-center text-muted py-4'>Nenhum recibo emitido para este imóvel.</td></tr>";
+    // 2. Mapeamos os dois corpos de tabela do HTML
+    const corpoRecibos = document.getElementById('corpoHistoricoRecibos');
+    const corpoContratos = document.getElementById('corpoHistoricoContratos');
+    
+    // Limpamos as tabelas antes de preencher
+    corpoRecibos.innerHTML = "";
+    corpoContratos.innerHTML = "";
+
+    // ==========================================
+    // 3. PROCESSAR TABELA DE RECIBOS
+    // ==========================================
+    const listaRecibos = Object.entries(recibos).sort((a, b) => new Date(b[1].dataEmissao) - new Date(a[1].dataEmissao));
+
+    if (listaRecibos.length === 0) {
+        corpoRecibos.innerHTML = "<tr><td colspan='4' class='text-center text-muted py-4'>Nenhum recibo emitido para este imóvel.</td></tr>";
     } else {
-        entradas.forEach(([code, dados]) => {
-            corpo.innerHTML += `
+        listaRecibos.forEach(([code, dados]) => {
+            corpoRecibos.innerHTML += `
                 <tr>
-                    <td><span class="badge bg-light text-dark">${dados.mes}</span></td>
-                    <td>${new Date(dados.dataEmissao).toLocaleDateString()}</td>
+                    <td><span class="badge bg-success text-white">${dados.mes}</span></td>
+                    <td>${new Date(dados.dataEmissao).toLocaleDateString('pt-BR')}</td>
                     <td><small class="text-muted">${code}</small></td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary border-0" onclick="window.gerarReciboPDF('${id}', '${dados.mes}')" title="Baixar 2ª Via">
+                        <button class="btn btn-sm btn-outline-success border-0" onclick="window.gerarReciboPDF('${id}', '${dados.mes}')" title="Baixar 2ª Via">
                             <i class="bi bi-download"></i>
                         </button>
                     </td>
                 </tr>`;
         });
     }
+
+    // ==========================================
+    // 4. PROCESSAR TABELA DE CONTRATOS
+    // ==========================================
+    const listaContratos = Object.entries(contratos).sort((a, b) => new Date(b[1].dataEmissao) - new Date(a[1].dataEmissao));
+
+    if (listaContratos.length === 0) {
+        corpoContratos.innerHTML = "<tr><td colspan='4' class='text-center text-muted py-4'>Nenhum contrato gerado para este imóvel.</td></tr>";
+    } else {
+        listaContratos.forEach(([code, dados]) => {
+            const textoContrato = dados.tipo === 'RENOVACAO' ? 'Renovação' : 'Contrato Original';
+            
+            corpoContratos.innerHTML += `
+                <tr>
+                    <td><span class="badge bg-primary text-white">${textoContrato}</span></td>
+                    <td>${new Date(dados.dataEmissao).toLocaleDateString('pt-BR')}</td>
+                    <td><small class="text-muted">${code}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary border-0" onclick="window.gerarContratoPDF('${id}', 'SEGUNDA_VIA')" title="Baixar Cópia">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        });
+    }
+
+    // 5. Exibe o modal
     new bootstrap.Modal(document.getElementById('modalHistorico')).show();
 };
 

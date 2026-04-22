@@ -503,25 +503,59 @@
     </div>
 
     <div class="modal fade" id="modalHistorico" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content rounded-4 border-0 shadow">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-primary"><i class="bi bi-clock-history me-2"></i>Histórico de Pagamentos</h5>
+                    <h5 class="modal-title fw-bold text-primary"><i class="bi bi-folder2-open me-2"></i>Histórico do Imóvel</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="table-responsive" style="max-height: 350px;">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr class="small text-muted">
-                                    <th>Mês</th>
-                                    <th>Emissão</th>
-                                    <th>Código</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="corpoHistorico" class="small"></tbody>
-                        </table>
+                    
+                    <ul class="nav nav-tabs mb-3" id="historicoTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold text-success" id="recibos-tab" data-bs-toggle="tab" data-bs-target="#tab-recibos" type="button" role="tab">
+                                <i class="bi bi-cash me-1"></i> Pagamentos
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold text-primary" id="contratos-tab" data-bs-toggle="tab" data-bs-target="#tab-contratos" type="button" role="tab">
+                                <i class="bi bi-file-earmark-text me-1"></i> Contratos
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="historicoTabsContent">
+                        
+                        <div class="tab-pane fade show active" id="tab-recibos" role="tabpanel">
+                            <div class="table-responsive" style="max-height: 350px;">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr class="small text-muted">
+                                            <th>Mês</th>
+                                            <th>Emissão</th>
+                                            <th>Código</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="corpoHistoricoRecibos" class="small"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="tab-contratos" role="tabpanel">
+                            <div class="table-responsive" style="max-height: 350px;">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr class="small text-muted">
+                                            <th>Tipo</th>
+                                            <th>Emissão</th>
+                                            <th>Código</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="corpoHistoricoContratos" class="small"></tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
