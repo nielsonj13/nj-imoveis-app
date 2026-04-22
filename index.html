@@ -71,7 +71,7 @@
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                             <li>
                                 <a class="dropdown-item py-2" href="#" onclick="window.abrirModalVerificacao()">
-                                    <i class="bi bi-patch-check text-success me-2"></i>Validar Recibo
+                                    <i class="bi bi-patch-check text-success me-2"></i>Validar Documento
                                 </a>
                             </li>
                             <li>
@@ -464,7 +464,7 @@
         <div class="modal-dialog modal-sm modal-dialog-centered">
             <div class="modal-content rounded-4 border-0 shadow">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-patch-check-fill me-2 text-success"></i>Validar Recibo</h5>
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-patch-check-fill me-2 text-success"></i>Validar Documento</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="window.pararCamera()"></button>
                 </div>
                 <div class="modal-body pt-3">
@@ -482,7 +482,7 @@
                         <label class="small text-muted fw-bold">Ou digite o código:</label>
                         <input type="text" id="inputValidarCodigo" class="form-control text-center fw-bold border-primary" placeholder="NJ-XXXX-XXXXXX">
                     </div>
-                    <button class="btn btn-primary w-100 fw-bold" onclick="window.validarCodigoRecibo()">Verificar Agora</button>
+                    <button class="btn btn-primary w-100 fw-bold" onclick="window.validarCodigoGeral(document.getElementById('inputValidarCodigo').value)">Verificar Agora</button>
                 </div>
             </div>
         </div>
