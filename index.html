@@ -209,17 +209,17 @@
                                             <i class="bi bi-whatsapp me-2"></i>Cobrar Aluguel
                                         </button>
 
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-dark flex-grow-1" id="btnGerarContrato" style="font-size: 0.9rem;">
+                                        <div class="d-flex gap-2 justify-content-between mt-3">
+                                            <button class="btn btn-dark flex-grow-1" id="btnGerarContrato" style="font-size: 0.9rem; padding: 10px;">
                                                 <i class="bi bi-file-earmark-pdf-fill me-1"></i>Contrato
                                             </button>
 
-                                            <button class="btn btn-primary flex-grow-1" id="btnGerarRecibo" style="font-size: 0.9rem;">
+                                            <button class="btn btn-primary flex-grow-1" id="btnGerarRecibo" style="font-size: 0.9rem; padding: 10px;">
                                                 <i class="bi bi-receipt me-1"></i>Recibo
                                             </button>
                                             
-                                            <button class="btn btn-outline-secondary flex-grow-1" id="btnDetalheAdiar" style="font-size: 0.9rem;">
-                                                <i class="bi bi-eye-slash me-1"></i>Ignorar
+                                            <button class="btn btn-success flex-grow-1" id="btnDetalheRenovar" style="font-size: 0.9rem; padding: 10px;">
+                                                <i class="fas fa-sync-alt me-1"></i>Renovar
                                             </button>
                                         </div>
                                     </div>
@@ -395,6 +395,74 @@
                     </div>
 
                     <button onclick="window.confirmarLocacao()" class="btn btn-primary w-100 fw-bold">Salvar Locação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="modalRenovar" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-success">Renovar Locação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-4">
+                    <input type="hidden" id="imovelIdParaRenovar">
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold small text-muted">Nome do Inquilino</label>
+                        <input type="text" class="form-control bg-light" id="renovarNome" readonly>
+                    </div>
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">CPF</label>
+                            <input type="text" class="form-control bg-light" id="renovarCpf" readonly>
+                        </div>
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">RG</label>
+                            <input type="text" class="form-control bg-light" id="renovarRg" readonly>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label class="fw-bold small text-muted">WhatsApp</label>
+                            <input type="tel" class="form-control" id="renovarTel" placeholder="(00) 00000-0000">
+                        </div>
+                        <div class="col-4">
+                            <label class="fw-bold small text-muted">Dia Venc.</label>
+                            <input type="number" class="form-control" id="renovarVencimento">
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-12">
+                            <label class="fw-bold small text-muted">Valor do Aluguel (R$)</label>
+                            <input type="number" class="form-control" id="renovarValor">
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">Início da Renovação</label>
+                            <input type="date" class="form-control" id="renovarDataInicio">
+                        </div>
+                        <div class="col-6">
+                            <label class="fw-bold small text-muted">Duração</label>
+                            <select class="form-select" id="renovarPrazo">
+                                <option value="6">6 Meses</option>
+                                <option value="12" selected>12 Meses(1 ano)</option>
+                                <option value="18">18 Meses (1 ano e meio)</option>
+                                <option value="24">24 Meses (2 anos)</option>
+                                <option value="30">30 Meses (2 anos e meio)</option>
+                                <option value="36">36 Meses(3 anos)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="window.confirmarRenovacao()" class="btn btn-success w-100 fw-bold">Confirmar Renovação</button>
                 </div>
             </div>
         </div>
