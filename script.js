@@ -579,7 +579,7 @@ window.abrirNotificacoes = async () => {
                 
                 // Gera o Token passando o registro correto e a sua chave real
                 const token = await getToken(messaging, { 
-                    vapidKey: 'BEm3AIbjLb04yRnFOuhzaUHeSJt916TyeBvf0pQswpB3RWAJDmRmH7qaHDmi-1iflX3B5cocgCGXlvRuiBPuvpk', 
+                    vapidKey: 'BCPhS1OmDYF4ByLSzwalWh51lzpIvOiCv6g00GL86JCdDV2EpXGz8RRZX7_JRZP12R7Msvq0pCLhAWy2K7t3N_0', 
                     serviceWorkerRegistration: swRegistration
                 });
                 
