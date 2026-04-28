@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
 // --- SUAS CHAVES DO FIREBASE ---
 const firebaseConfig = {
@@ -16,6 +17,14 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const imoveisRef = collection(db, "imoveis");
+const messaging = getMessaging(app);
+
+// Registra o seu Service Worker de cache para transformar em App instalável
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js')
+    .then(() => console.log('Service Worker Registrado!'))
+    .catch(err => console.error('Erro no Service Worker:', err));
+}
 
 // Variáveis Globais
 let todosImoveis = [];
@@ -551,7 +560,35 @@ window.cobrarNoZap = (nome, telefone, imovel, dia) => {
     window.open(link, '_blank');
 }
 
-window.abrirNotificacoes = () => modalNotificacoes.show();
+window.abrirNotificacoes = async () => {
+    // 1. Abre o modal de cobranças pendentes normalmente
+    modalNotificacoes.show();
+
+    // 2. Verifica se o navegador suporta notificações e se a permissão ainda não foi dada
+    if ('Notification' in window && Notification.permission === 'default') {
+        try {
+            // O navegador vai subir aquele pop-up nativo do celular perguntando "Deseja receber notificações?"
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+                console.log("Permissão concedida clicando no sino!");
+                
+                // Gera o Token de endereçamento do celular
+                const token = await getToken(messaging, { 
+                    vapidKey: 'COLE_A_CHAVE_VAPID_QUE_VOCE_GEROU_AQUI' 
+                });
+                
+                if (token) {
+                    console.log("Seu Token do celular é:", token);
+                    // Futuramente podemos criar um script para salvar isso no seu banco de dados
+                }
+            }
+        } catch (error) {
+            console.error("Erro ao solicitar permissão de notificação:", error);
+        }
+    }
+};
+
 window.registrarPagamento = async (id) => { 
     if(confirm("Confirmar que este mês foi pago?")) { 
         await updateDoc(doc(db,"imoveis",id),{ultimoPagamento: new Date().toISOString()}); 
@@ -1321,6 +1358,32 @@ window.pararCamera = () => {
         }).catch(err => console.error(err));
     }
 };
+
+// FUNÇÃO QUE ATIVA AS NOTIFICAÇÕES
+window.ativarNotificacoesCelular = async () => {
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            console.log("Permissão concedida!");
+            // IMPORTANTE: Você precisa pegar a Chave VAPID no seu painel do Firebase
+            const token = await getToken(messaging, { 
+                vapidKey: 'BEm3AIbjLb04yRnFOuhzaUHeSJt916TyeBvf0pQswpB3RWAJDmRmH7qaHDmi-1iflX3B5cocgCGXlvRuiBPuvpk' 
+            });
+            console.log("Seu Token de Celular é:", token);
+            alert("Notificações ativadas com sucesso!");
+            // No futuro, salvaremos esse token atrelado ao seu usuário administrador
+        } else {
+            alert("Permissão de notificação negada.");
+        }
+    } catch (error) {
+        console.error("Erro ao ativar notificações:", error);
+    }
+};
+
+// Escuta as notificações caso o app esteja ABERTO na tela
+onMessage(messaging, (payload) => {
+    alert(`NOVA NOTIFICAÇÃO:\n${payload.notification.title}\n${payload.notification.body}`);
+});
 
 // --- MÁSCARAS DE INPUT (FORMATAÇÃO AUTOMÁTICA) ---
 
