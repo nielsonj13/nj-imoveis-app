@@ -572,8 +572,10 @@ window.abrirNotificacoes = async () => {
             if (permission === 'granted') {
                 console.log("Permissão concedida clicando no sino!");
                 
-                // MUDANÇA AQUI: Aponta o caminho exato do arquivo no GitHub Pages
-                const swRegistration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+                // CAMINHO CORRETO PARA O GITHUB PAGES (Evita o erro 404 vermelho)
+                const swRegistration = await navigator.serviceWorker.register('/nj-imoveis-app/firebase-messaging-sw.js', {
+                    scope: '/nj-imoveis-app/'
+                });
                 
                 // Gera o Token passando o registro correto e a sua chave real
                 const token = await getToken(messaging, { 
@@ -1359,27 +1361,6 @@ window.pararCamera = () => {
             btn.disabled = false;
             btn.innerText = "Escanear QR Code";
         }).catch(err => console.error(err));
-    }
-};
-
-// FUNÇÃO QUE ATIVA AS NOTIFICAÇÕES
-window.ativarNotificacoesCelular = async () => {
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            console.log("Permissão concedida!");
-            // IMPORTANTE: Você precisa pegar a Chave VAPID no seu painel do Firebase
-            const token = await getToken(messaging, { 
-                vapidKey: 'BEm3AIbjLb04yRnFOuhzaUHeSJt916TyeBvf0pQswpB3RWAJDmRmH7qaHDmi-1iflX3B5cocgCGXlvRuiBPuvpk' 
-            });
-            console.log("Seu Token de Celular é:", token);
-            alert("Notificações ativadas com sucesso!");
-            // No futuro, salvaremos esse token atrelado ao seu usuário administrador
-        } else {
-            alert("Permissão de notificação negada.");
-        }
-    } catch (error) {
-        console.error("Erro ao ativar notificações:", error);
     }
 };
 
