@@ -567,20 +567,23 @@ window.abrirNotificacoes = async () => {
     // 2. Verifica se o navegador suporta notificações e se a permissão ainda não foi dada
     if ('Notification' in window && Notification.permission === 'default') {
         try {
-            // O navegador vai subir aquele pop-up nativo do celular perguntando "Deseja receber notificações?"
             const permission = await Notification.requestPermission();
             
             if (permission === 'granted') {
                 console.log("Permissão concedida clicando no sino!");
                 
-                // Gera o Token de endereçamento do celular
+                // MUDANÇA AQUI: Aponta o caminho exato do arquivo no GitHub Pages
+                const swRegistration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+                
+                // Gera o Token passando o registro correto e a sua chave real
                 const token = await getToken(messaging, { 
-                    vapidKey: 'COLE_A_CHAVE_VAPID_QUE_VOCE_GEROU_AQUI' 
+                    vapidKey: 'BEm3AIbjLbO4yRnFOuhzaUHeSJt9I6TyEBvfOpQswpB3RWAJDmRmh17qshlDmi-1iflX3B5cvogCGXwRuBPuvpk', 
+                    serviceWorkerRegistration: swRegistration
                 });
                 
                 if (token) {
-                    console.log("Seu Token do celular é:", token);
-                    // Futuramente podemos criar um script para salvar isso no seu banco de dados
+                    console.log("Seu Token de notificação é:", token);
+                    alert("Notificações ativadas com sucesso!");
                 }
             }
         } catch (error) {
