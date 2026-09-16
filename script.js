@@ -139,15 +139,22 @@ const renderizarLista = (lista) => {
     lista.forEach((d) => {
         const i = d.data;
         
-        // --- NOVA LÓGICA DE ETIQUETA E STATUS ---
+        // --- NOVA LÓGICA DE ETIQUETA, STATUS E VALORES ---
         let statusClass = i.alugado ? 'status-border-ocupado' : 'status-border-livre';
         let badgeTexto = i.alugado ? 'Alugado' : 'Livre';
-        let badgeClass = i.alugado ? 'bg-danger' : 'bg-success'; // Usa as cores do Bootstrap
+        let badgeClass = i.alugado ? 'bg-danger' : 'bg-success'; 
+        
+        // Variáveis que controlam o preço exibido na tela inicial
+        let valorExibicao = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor || 0);
+        let subtituloValor = '';
 
         if (i.alugado && i.tipoLocacao === 'temporada') {
-            statusClass = 'border-info border-3'; // Destaca o card com uma borda azul
+            statusClass = 'border-info border-3'; 
             badgeTexto = 'Temporada';
-            badgeClass = 'bg-info text-dark'; // Etiqueta azul clara
+            badgeClass = 'bg-info text-dark'; 
+            // Substitui o valor mensal pelo total do pacote
+            valorExibicao = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valorPacoteTemporada || 0);
+            subtituloValor = '<small class="text-muted d-block mt-n1 mb-1" style="font-size: 0.65rem;">Total do Pacote</small>';
         }
         // ----------------------------------------
         
@@ -172,14 +179,20 @@ const renderizarLista = (lista) => {
                             <div class="text-truncate" style="max-width: 65%">
                                 <h5 class="fw-bold mb-0">${i.nome}</h5>
                             </div>
-                            <!-- NOVA LINHA DA ETIQUETA AQUI -->
                             <span class="badge ${badgeClass} fs-6">${badgeTexto}</span>
                         </div>
                         <p class="text-muted small text-truncate mb-2">${i.endereco.completo || i.endereco}</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h4 class="text-primary fw-bold mb-0">${new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor)}</h4>
+                        
+                        <!-- NOVA ÁREA DE PREÇO COM SUBTÍTULO -->
+                        <div class="d-flex justify-content-between align-items-end">
+                            <div>
+                                ${subtituloValor}
+                                <h4 class="text-primary fw-bold mb-0">${valorExibicao}</h4>
+                            </div>
                             ${tipoBadge}
                         </div>
+                        <!-- FIM DA NOVA ÁREA DE PREÇO -->
+                        
                     </div>
                 </div>
             </div>`;
@@ -192,11 +205,23 @@ window.abrirDetalhes = (id) => {
     if (!item) return;
     const i = item.data;
 
+    // --- LÓGICA INTELIGENTE DE VALOR (Fixo vs Temporada) ---
+    let valorParaExibir = i.valor;
+    let textoLabelValor = "Valor do Aluguel";
+
+    if (i.alugado && i.tipoLocacao === 'temporada') {
+        valorParaExibir = i.valorPacoteTemporada || 0;
+        textoLabelValor = "Total do Pacote";
+    }
+
+    document.getElementById('detalheValor').innerText = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(valorParaExibir);
+    
+    const lblValor = document.getElementById('labelValorImovel');
+    if(lblValor) lblValor.innerText = textoLabelValor;
+
     // --- PREENCHIMENTO BÁSICO ---
     document.getElementById('detalheNome').innerText = i.nome;
     document.getElementById('detalheEndereco').innerText = i.endereco.completo || i.endereco;
-    document.getElementById('detalheValor').innerText = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor);
-    
     document.getElementById('detalheTipo').innerText = i.tipo || 'Imóvel';
     document.getElementById('detalheQuartos').innerText = i.quartos || '-';
     document.getElementById('detalheBanheiros').innerText = i.banheiros || '-';
@@ -212,6 +237,10 @@ window.abrirDetalhes = (id) => {
         capa.style.backgroundColor = '#64748b';
     }
 
+    // Configura o ID invisível para o upload do contrato assinado
+    const inputAnexo = document.getElementById('inputContratoAssinado');
+    if(inputAnexo) inputAnexo.dataset.imovelId = id;
+
     // --- LÓGICA DO INQUILINO E BOTÕES DE OPERAÇÃO ---
     const areaInq = document.getElementById('areaInquilinoDetalhe');
     const btnLocacao = document.getElementById('btnDetalheLocacao');
@@ -220,22 +249,49 @@ window.abrirDetalhes = (id) => {
         areaInq.classList.remove('d-none');
         document.getElementById('detalheInquilinoNome').innerText = i.inquilino;
         document.getElementById('detalheInquilinoTel').innerText = i.telefone || '-';
-        document.getElementById('detalheVencimento').innerText = i.diaVencimento;
-        document.getElementById('inputContratoAssinado').dataset.imovelId = id;
         
-        // 1. Botão WhatsApp
-        document.getElementById('btnDetalheZap').onclick = () => window.cobrarNoZap(i.inquilino, i.telefone, i.nome, i.diaVencimento);
+        // Elementos dinâmicos que mudam na temporada
+        const lblVenc = document.getElementById('labelVencimento');
+        const boxVenc = document.getElementById('boxVencimentoText');
+        const btnRenovar = document.getElementById('btnDetalheRenovar');
+        const btnZap = document.getElementById('btnDetalheZap');
+
+        if (i.tipoLocacao === 'temporada') {
+            // Ajustes visuais para TEMPORADA
+            if(lblVenc) lblVenc.innerText = "Check-out";
+            if(boxVenc) {
+                const outDate = i.dataCheckout ? new Date(i.dataCheckout + 'T00:00:00').toLocaleDateString('pt-BR') : '-';
+                boxVenc.innerHTML = `<span class="text-info">${outDate}</span>`;
+            }
+            if(btnRenovar) btnRenovar.style.setProperty('display', 'none', 'important'); // Esconde renovar
+            if(btnZap) {
+                btnZap.innerHTML = '<i class="bi bi-whatsapp me-2"></i>Falar no Zap';
+                btnZap.className = "btn btn-info fw-bold py-2 text-dark"; // Muda cor do botão
+                btnZap.onclick = () => window.cobrarNoZap(i.inquilino, i.telefone, i.nome, 'a sua estadia');
+            }
+        } else {
+            // Ajustes visuais para FIXO (Mensal)
+            if(lblVenc) lblVenc.innerText = "Vencimento";
+            if(boxVenc) boxVenc.innerHTML = `Dia <span id="detalheVencimento">${i.diaVencimento}</span>`;
+            if(btnRenovar) {
+                btnRenovar.style.setProperty('display', 'block', 'important');
+                btnRenovar.onclick = () => { modalDetalhes.hide(); setTimeout(() => window.abrirModalRenovacao(id), 400); };
+            }
+            if(btnZap) {
+                btnZap.innerHTML = '<i class="bi bi-whatsapp me-2"></i>Cobrar Aluguel';
+                btnZap.className = "btn btn-success fw-bold py-2"; // Verde padrão
+                btnZap.onclick = () => window.cobrarNoZap(i.inquilino, i.telefone, i.nome, i.diaVencimento);
+            }
+        }
         
-        // 2. Botão Contrato
+        // Botão Contrato e Recibo
         const btnContrato = document.getElementById('btnGerarContrato');
         if(btnContrato) btnContrato.onclick = () => window.gerarContratoPDF(id);
 
-        // 3. Botão Recibo (Abre modal de escolha de mês OU gera direto para temporada)
         const btnRecibo = document.getElementById('btnGerarRecibo');
         if(btnRecibo) {
             btnRecibo.onclick = () => {
                 if (i.tipoLocacao === 'temporada') {
-                    // Temporada não tem "mês", gera o recibo do pacote na hora
                     window.gerarReciboPDF(id, 'PACOTE DE TEMPORADA');
                 } else {
                     document.getElementById('idImovelRecibo').value = id;
@@ -243,26 +299,6 @@ window.abrirDetalhes = (id) => {
                     document.getElementById('mesReferenciaRecibo').value = hoje;
                     new bootstrap.Modal(document.getElementById('modalEscolherMes')).show();
                 }
-            };
-        }
-
-        // 4. Lógica do Botão de Renovação (Forçando visibilidade e clique)
-        const btnRenovar = document.getElementById('btnDetalheRenovar');
-
-        if (btnRenovar) {
-            // Garante que ele esteja visível
-            btnRenovar.style.setProperty('display', 'block', 'important');
-            
-            btnRenovar.onclick = () => {
-                // 1. Fecha o modal de detalhes
-                if (typeof modalDetalhes !== 'undefined') {
-                    modalDetalhes.hide();
-                }
-                
-                // 2. Abre o modal de renovação após o fechamento
-                setTimeout(() => {
-                    window.abrirModalRenovacao(id);
-                }, 400);
             };
         }
 
@@ -278,26 +314,14 @@ window.abrirDetalhes = (id) => {
     }
 
     // --- BOTÕES DE GESTÃO DO IMÓVEL (FINAL DO MODAL) ---
-
-    // 1. Editar Imóvel
-    document.getElementById('btnDetalheEditar').onclick = () => { 
-        modalDetalhes.hide(); 
-        window.prepararEdicao(id); 
-    };
-
-    // 2. Histórico de Pagamentos (POSICIONADO ABAIXO DO EDITAR)
-    // Este botão abre o histórico completo do imóvel específico
+    document.getElementById('btnDetalheEditar').onclick = () => { modalDetalhes.hide(); window.prepararEdicao(id); };
+    
     const btnHist = document.getElementById('btnAbrirHistorico');
-    if(btnHist) {
-        btnHist.onclick = () => {
-            // Não precisa esconder o detalhe para ver o histórico, o modal sobrepõe
-            window.abrirHistorico(id);
-        };
-    }
+    if(btnHist) btnHist.onclick = () => window.abrirHistorico(id);
 
-    // 3. Excluir Imóvel
     document.getElementById('btnDetalheExcluir').onclick = () => { 
         if(confirm("Excluir permanentemente?")) { 
+            const { deleteDoc, doc, db } = window.FirebaseConfig;
             deleteDoc(doc(db,"imoveis",id)); 
             modalDetalhes.hide(); 
         } 
