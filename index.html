@@ -209,9 +209,16 @@
                                             <i class="bi bi-whatsapp me-2"></i>Cobrar Aluguel
                                         </button>
 
-                                        <div class="d-flex gap-2 justify-content-between mt-3">
-                                            <button class="btn btn-dark flex-grow-1" id="btnGerarContrato" style="font-size: 0.9rem; padding: 10px;">
-                                                <i class="bi bi-file-earmark-pdf-fill me-1"></i>Contrato
+                                        <div class="d-flex gap-2 justify-content-between mt-3 flex-wrap">
+                                            <!-- Input invisível para upload -->
+                                            <input type="file" id="inputContratoAssinado" accept="application/pdf, image/*" class="d-none" onchange="window.salvarContratoAnexo(this)">
+
+                                            <button class="btn btn-dark flex-grow-1" id="btnGerarContrato" style="font-size: 0.9rem; padding: 10px;" title="Baixar Contrato Original">
+                                                <i class="bi bi-file-earmark-pdf-fill me-1"></i>Baixar
+                                            </button>
+
+                                            <button class="btn btn-outline-dark flex-grow-1" onclick="document.getElementById('inputContratoAssinado').click()" style="font-size: 0.9rem; padding: 10px;" title="Guardar Contrato Assinado">
+                                                <i class="bi bi-upload me-1"></i>Anexar
                                             </button>
 
                                             <button class="btn btn-primary flex-grow-1" id="btnGerarRecibo" style="font-size: 0.9rem; padding: 10px;">

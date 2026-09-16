@@ -209,6 +209,7 @@ window.abrirDetalhes = (id) => {
         document.getElementById('detalheInquilinoNome').innerText = i.inquilino;
         document.getElementById('detalheInquilinoTel').innerText = i.telefone || '-';
         document.getElementById('detalheVencimento').innerText = i.diaVencimento;
+        document.getElementById('inputContratoAssinado').dataset.imovelId = id;
         
         // 1. Botão WhatsApp
         document.getElementById('btnDetalheZap').onclick = () => window.cobrarNoZap(i.inquilino, i.telefone, i.nome, i.diaVencimento);
@@ -694,6 +695,19 @@ window.gerarContratoPDF = async (id, acaoOuCodigo = "NOVO") => {
         return;
     }
     const i = item.data;
+    if (i.contratoAssinadoAnexo) {
+        const btnOriginal = document.getElementById('btnGerarContrato');
+        if(btnOriginal) {
+            const htmlAntigo = btnOriginal.innerHTML;
+            btnOriginal.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Baixando...';
+            setTimeout(() => btnOriginal.innerHTML = htmlAntigo, 2000);
+        }
+        const link = document.createElement('a');
+        link.href = i.contratoAssinadoAnexo;
+        link.download = `Contrato_Assinado_${(i.inquilino || 'NJ').split(' ')[0]}.pdf`;
+        link.click();
+        return; // Encerra a função aqui para não rodar o pdfmake
+    }
     const historico = i.historicoContratos || {};
     
     let authCode;
@@ -1444,3 +1458,28 @@ window.exportarExcel = () => {
     link.click();
     document.body.removeChild(link);
 }
+
+// FUNÇÃO PARA SALVAR O PDF EM BASE64 NO BANCO
+window.salvarContratoAnexo = async (input) => {
+    const file = input.files[0];
+    if (!file) return;
+
+    // Trava de 2MB para não estourar o limite de tamanho do documento do Firestore
+    if (file.size > 2097152) return alert("O arquivo é muito grande! Tente um PDF ou Imagem com menos de 2MB.");
+
+    const id = input.dataset.imovelId;
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+        const arquivoBase64 = e.target.result;
+        try {
+            const { updateDoc, doc, db } = window.FirebaseConfig;
+            await updateDoc(doc(db, "imoveis", id), { contratoAssinadoAnexo: arquivoBase64 });
+            alert("Contrato assinado guardado com sucesso!");
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao salvar contrato. Verifique o console.");
+        }
+    };
+    reader.readAsDataURL(file);
+};
