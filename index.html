@@ -346,7 +346,7 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalAlugar" tabindex="-1">
+   <div class="modal fade" id="modalAlugar" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content rounded-4 border-0 shadow">
                 <div class="modal-header border-0 pb-0">
@@ -356,8 +356,17 @@
                 <div class="modal-body pt-4">
                     <input type="hidden" id="imovelIdParaAlugar">
                     
+                    <!-- CHAVE SELETORA DE MODALIDADE -->
+                    <div class="mb-3 p-2 bg-light rounded border">
+                        <label class="fw-bold small text-primary mb-1"><i class="bi bi-key-fill me-1"></i>Modalidade da Locação</label>
+                        <select class="form-select border-primary fw-bold text-primary" id="tipoLocacao" onchange="window.alternarModalidadeLocacao()">
+                            <option value="fixo">Aluguel Fixo (Anual/Mensal)</option>
+                            <option value="temporada">Locação por Temporada (Curto Prazo)</option>
+                        </select>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="fw-bold small text-muted">Nome Completo</label>
+                        <label class="fw-bold small text-muted">Nome Completo do Inquilino/Hóspede</label>
                         <input type="text" class="form-control" id="nomeInquilino" placeholder="Ex: João da Silva">
                     </div>
                     
@@ -367,37 +376,62 @@
                             <input type="text" class="form-control" id="cpfInquilino" placeholder="000.000.000-00" maxlength="14" oninput="mascaraCPF(this)">
                         </div>
                         <div class="col-6">
-                            <label class="fw-bold small text-muted">RG</label>
+                            <label class="fw-bold small text-muted">RG / Passaporte</label>
                             <input type="text" class="form-control" id="rgInquilino" placeholder="Números" maxlength="15">
                         </div>
                     </div>
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold small text-muted">WhatsApp</label>
+                        <input type="tel" class="form-control" id="telInquilino" placeholder="(00) 00000-0000" maxlength="15" oninput="mascaraTelefone(this)">
+                    </div>
 
-                    <<div class="row g-2 mb-3">
-                        <div class="col-8">
-                            <label class="fw-bold small text-muted">WhatsApp</label>
-                            <input type="tel" class="form-control" id="telInquilino" placeholder="(00) 00000-0000" maxlength="15" oninput="mascaraTelefone(this)">
-                        </div>
-                        <div class="col-4">
-                            <label class="fw-bold small text-muted">Dia Venc.</label>
-                            <input type="number" class="form-control" id="diaVencimento" placeholder="Dia" oninput="validarDia(this)">
+                    <!-- CAMPOS PARA ALUGUEL FIXO -->
+                    <div id="camposFixo">
+                        <div class="row g-2 mb-4">
+                            <div class="col-4">
+                                <label class="fw-bold small text-muted">Dia Venc.</label>
+                                <input type="number" class="form-control" id="diaVencimento" placeholder="Dia" oninput="validarDia(this)">
+                            </div>
+                            <div class="col-4">
+                                <label class="fw-bold small text-muted">Início</label>
+                                <input type="date" class="form-control" id="dataInicioContrato">
+                            </div>
+                            <div class="col-4">
+                                <label class="fw-bold small text-muted">Duração</label>
+                                <select class="form-select" id="prazoContrato">
+                                    <option value="6">6 Meses</option>
+                                    <option value="12" selected>12 Meses</option>
+                                    <option value="24">24 Meses</option>
+                                    <option value="36">36 Meses</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-4">
-                        <div class="col-6">
-                            <label class="fw-bold small text-muted">Início do Contrato</label>
-                            <input type="date" class="form-control" id="dataInicioContrato">
+                    <!-- CAMPOS PARA TEMPORADA (Oculto por padrão) -->
+                    <div id="camposTemporada" class="d-none bg-info bg-opacity-10 p-3 rounded mb-4 border border-info">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="fw-bold small text-dark">Data Entrada (Check-in)</label>
+                                <input type="date" class="form-control border-info" id="dataCheckin" onchange="window.calcularTotalTemporada()">
+                            </div>
+                            <div class="col-6">
+                                <label class="fw-bold small text-dark">Data Saída (Check-out)</label>
+                                <input type="date" class="form-control border-info" id="dataCheckout" onchange="window.calcularTotalTemporada()">
+                            </div>
                         </div>
-                        <div class="col-6">
-                            <label class="fw-bold small text-muted">Duração</label>
-                            <select class="form-select" id="prazoContrato">
-                                <option value="6">6 Meses</option>
-                                <option value="12" selected>12 Meses(1 ano)</option>
-                                <option value="18">18 Meses (1 ano e meio)</option>
-                                <option value="24">24 Meses (2 anos)</option>
-                                <option value="30">30 Meses (2 anos e meio)</option>
-                                <option value="36">36 Meses(3 anos)</option>
-                            </select>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-6">
+                                <label class="fw-bold small text-dark">Valor da Diária (R$)</label>
+                                <input type="number" class="form-control border-info fw-bold text-primary" id="valorDiariaTemporada" placeholder="Ex: 150,00" oninput="window.calcularTotalTemporada()">
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 bg-white rounded border border-info text-center shadow-sm">
+                                    <small class="text-muted d-block" style="font-size: 0.7rem;">Total (<span id="qtdDiariasDisplay">0</span> diárias)</small>
+                                    <span class="fw-bold text-success fs-5" id="valorTotalDisplay">R$ 0,00</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -405,7 +439,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div>>
     
     <div class="modal fade" id="modalRenovar" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
