@@ -276,7 +276,7 @@
                         </div>
 
                         <div class="row g-3 mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="small text-muted fw-bold">Apelido do Imóvel</label>
                                 <input type="text" id="nome" placeholder="Ex: Apto Centro" class="form-control" required>
                             </div>
@@ -294,8 +294,15 @@
                                     <option value="Terreno">Terreno</option>
                                 </select>
                             </div>
+                            <div class="col-md-2">
+                                <label class="small text-muted fw-bold text-primary">Perfil</label>
+                                <select id="perfilImovel" class="form-select border-primary fw-bold" required>
+                                    <option value="mensal" selected>Fixo</option>
+                                    <option value="temporada">Temporada</option>
+                                </select>
+                            </div>
                             <div class="col-md-3">
-                                <label class="small text-muted fw-bold">Valor Aluguel (R$)</label>
+                                <label class="small text-muted fw-bold">Valor Base (R$)</label>
                                 <input type="number" id="valor" step="0.01" placeholder="0,00" class="form-control" required>
                             </div>
                         </div>

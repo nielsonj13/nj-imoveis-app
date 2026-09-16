@@ -139,20 +139,26 @@ const renderizarLista = (lista) => {
     lista.forEach((d) => {
         const i = d.data;
         
-        // --- NOVA LÓGICA DE ETIQUETA, STATUS E VALORES ---
+        // --- NOVA LÓGICA DE ETIQUETA, STATUS E VALORES (COM PERFIL TEMPORADA) ---
         let statusClass = i.alugado ? 'status-border-ocupado' : 'status-border-livre';
         let badgeTexto = i.alugado ? 'Alugado' : 'Livre';
         let badgeClass = i.alugado ? 'bg-danger' : 'bg-success'; 
         
-        // Variáveis que controlam o preço exibido na tela inicial
         let valorExibicao = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valor || 0);
         let subtituloValor = '';
 
+        // Se o imóvel for exclusivo de Temporada e estiver Livre
+        if (!i.alugado && i.perfil === 'temporada') {
+            subtituloValor = '<small class="text-muted d-block mt-n1 mb-1" style="font-size: 0.65rem;">Valor da Diária Padrão</small>';
+            badgeTexto = 'Livre (Temp.)';
+            badgeClass = 'bg-success bg-opacity-75 text-dark'; // Verde diferenciado
+        }
+
+        // Se o imóvel estiver alugado por Temporada
         if (i.alugado && i.tipoLocacao === 'temporada') {
             statusClass = 'border-info border-3'; 
             badgeTexto = 'Temporada';
             badgeClass = 'bg-info text-dark'; 
-            // Substitui o valor mensal pelo total do pacote
             valorExibicao = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(i.valorPacoteTemporada || 0);
             subtituloValor = '<small class="text-muted d-block mt-n1 mb-1" style="font-size: 0.65rem;">Total do Pacote</small>';
         }
@@ -167,7 +173,6 @@ const renderizarLista = (lista) => {
             midia = `<iframe src="https://maps.google.com/maps?q=$${endEnc}&t=&z=15&ie=UTF8&iwloc=&output=embed"></iframe>`;
         }
 
-        // Tipo do imóvel (Badge cinza pequeno)
         const tipoBadge = i.tipo ? `<span class="badge bg-secondary ms-2" style="font-size: 0.6rem">${i.tipo}</span>` : '';
 
         div.innerHTML += `
@@ -183,7 +188,6 @@ const renderizarLista = (lista) => {
                         </div>
                         <p class="text-muted small text-truncate mb-2">${i.endereco.completo || i.endereco}</p>
                         
-                        <!-- NOVA ÁREA DE PREÇO COM SUBTÍTULO -->
                         <div class="d-flex justify-content-between align-items-end">
                             <div>
                                 ${subtituloValor}
@@ -191,7 +195,6 @@ const renderizarLista = (lista) => {
                             </div>
                             ${tipoBadge}
                         </div>
-                        <!-- FIM DA NOVA ÁREA DE PREÇO -->
                         
                     </div>
                 </div>
@@ -355,6 +358,7 @@ document.getElementById('formImovel').addEventListener('submit', async (e) => {
             nome: document.getElementById('nome').value,
             valor: parseFloat(document.getElementById('valor').value),
             fotoUrl: fotoFinal,
+            perfil: document.getElementById('perfilImovel').value,
             // NOVOS CAMPOS
             tipo: document.getElementById('tipoImovel').value,
             quartos: document.getElementById('qtdQuartos').value,
@@ -411,6 +415,7 @@ window.prepararEdicao = async (id) => {
             
             // NOVOS CAMPOS
             document.getElementById('tipoImovel').value = d.tipo || '';
+            document.getElementById('perfilImovel').value = d.perfil || 'mensal';
             document.getElementById('qtdQuartos').value = d.quartos || '';
             document.getElementById('qtdBanheiros').value = d.banheiros || '';
             document.getElementById('qtdVagas').value = d.vagas || '';
@@ -508,7 +513,7 @@ window.abrirFormularioNovo = () => {
     document.getElementById('idEdicao').value = '';
     document.getElementById('urlFotoAtual').value = '';
     document.getElementById('previewContainer').style.display = 'none';
-    
+    document.getElementById('perfilImovel').value = 'mensal';
     document.getElementById('tituloFormulario').innerText = "Cadastrar Propriedade";
     document.getElementById('btnSalvar').innerText = "Salvar Imóvel";
     modalForm.show();
@@ -561,7 +566,6 @@ window.gerenciarLocacao = async (id, alugado) => {
                 inquilino: null, cpf: null, rg: null, telefone: null, 
                 diaVencimento: null, prazoContrato: null, dataInicio: null, 
                 ultimoPagamento: null, ignorarAtrasoMes: null,
-                // Limpando também os dados de temporada para não dar conflito no futuro
                 tipoLocacao: null, dataCheckin: null, dataCheckout: null, 
                 valorDiaria: null, quantidadeDiarias: null, valorPacoteTemporada: null
             });
@@ -573,19 +577,28 @@ window.gerenciarLocacao = async (id, alugado) => {
         document.getElementById('rgInquilino').value = '';
         document.getElementById('telInquilino').value = '';
         
-        // Reset para a modalidade padrão (Fixo)
-        document.getElementById('tipoLocacao').value = 'fixo';
-        window.alternarModalidadeLocacao();
+        // --- AUTO-PREENCHIMENTO INTELIGENTE ---
+        const iData = todosImoveis.find(im => im.id === id)?.data;
+        
+        if (iData && iData.perfil === 'temporada') {
+            // Se o perfil do imóvel é temporada, já abre em temporada e puxa a diária base!
+            document.getElementById('tipoLocacao').value = 'temporada';
+            window.alternarModalidadeLocacao();
+            document.getElementById('valorDiariaTemporada').value = iData.valor || '';
+        } else {
+            // Se for fixo, abre como fixo normalmente
+            document.getElementById('tipoLocacao').value = 'fixo';
+            window.alternarModalidadeLocacao();
+            document.getElementById('valorDiariaTemporada').value = '';
+        }
         
         document.getElementById('diaVencimento').value = '';
         document.getElementById('prazoContrato').value = '12';
         document.getElementById('dataInicioContrato').value = new Date().toISOString().split('T')[0];
         
-        // --- CORREÇÃO AQUI: Limpar os campos novos de temporada ---
         document.getElementById('dataCheckin').value = '';
         document.getElementById('dataCheckout').value = '';
-        document.getElementById('valorDiariaTemporada').value = ''; // O ID novo e correto!
-        window.calcularTotalTemporada(); // Zera o display de R$ 0,00
+        window.calcularTotalTemporada(); // Zera o display de total R$
         
         modalLocacao.show();
     }
