@@ -428,6 +428,23 @@
                                 <input type="date" class="form-control border-info" id="dataCheckout" onchange="window.calcularTotalTemporada()">
                             </div>
                         </div>
+                        
+                        <!-- NOVA LINHA: HORÁRIOS E HÓSPEDES -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-4">
+                                <label class="fw-bold small text-dark">Hora Check-in</label>
+                                <input type="time" class="form-control border-info text-center" id="horaCheckin" value="14:00">
+                            </div>
+                            <div class="col-4">
+                                <label class="fw-bold small text-dark">Hora Check-out</label>
+                                <input type="time" class="form-control border-info text-center" id="horaCheckout" value="12:00">
+                            </div>
+                            <div class="col-4">
+                                <label class="fw-bold small text-dark">Hóspedes (Máx)</label>
+                                <input type="number" class="form-control border-info text-center" id="qtdHospedes" value="2" min="1">
+                            </div>
+                        </div>
+
                         <div class="row g-2 align-items-end">
                             <div class="col-6">
                                 <label class="fw-bold small text-dark">Valor da Diária (R$)</label>
