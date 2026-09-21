@@ -567,7 +567,8 @@ window.gerenciarLocacao = async (id, alugado) => {
                 diaVencimento: null, prazoContrato: null, dataInicio: null, 
                 ultimoPagamento: null, ignorarAtrasoMes: null,
                 tipoLocacao: null, dataCheckin: null, dataCheckout: null, 
-                valorDiaria: null, quantidadeDiarias: null, valorPacoteTemporada: null
+                valorDiaria: null, quantidadeDiarias: null, valorPacoteTemporada: null,
+                contratoAssinadoAnexo: null 
             });
         }
     } else {
@@ -624,7 +625,8 @@ window.confirmarLocacao = async () => {
         rg: rg,
         telefone: tel,
         ultimoPagamento: null,
-        ignorarAtrasoMes: null
+        ignorarAtrasoMes: null,
+        contratoAssinadoAnexo: null
     };
 
     if (tipoLocacao === 'fixo') {
@@ -642,7 +644,7 @@ window.confirmarLocacao = async () => {
         const checkout = document.getElementById('dataCheckout').value;
         const valorDiaria = document.getElementById('valorDiariaTemporada').value;
         
-        // Novos campos
+        // Campos Extras Originais
         const horaIn = document.getElementById('horaCheckin').value || '14:00';
         const horaOut = document.getElementById('horaCheckout').value || '12:00';
         const hospedes = document.getElementById('qtdHospedes').value || '2';
@@ -667,10 +669,19 @@ window.confirmarLocacao = async () => {
         dadosLocacao.quantidadeDiarias = diffDias;
         dadosLocacao.valorPacoteTemporada = totalPacote;
         
-        // Salvando no banco
+        // Salvando Horários e Hóspedes
         dadosLocacao.horaCheckin = horaIn;
         dadosLocacao.horaCheckout = horaOut;
         dadosLocacao.qtdHospedes = parseInt(hospedes);
+
+        // --- NOVOS CAMPOS FINANCEIROS AUTOMATIZADOS ---
+        dadosLocacao.valorReserva = parseFloat(document.getElementById('valorReserva').value) || 0;
+        dadosLocacao.dataPagamentoReserva = document.getElementById('dataPagamentoReserva').value || '';
+        dadosLocacao.formaPagamentoReserva = document.getElementById('formaPagamentoReserva').value || 'PIX';
+        dadosLocacao.vencimentoSaldo = document.getElementById('vencimentoSaldo').value || '';
+        dadosLocacao.valorCaucao = parseFloat(document.getElementById('valorCaucao').value) || 0;
+        dadosLocacao.taxaLimpeza = parseFloat(document.getElementById('taxaLimpeza').value) || 0;
+        // ----------------------------------------------
     }
 
     try {
@@ -817,14 +828,17 @@ const checarVencimentos = () => {
 }
 
 // --- FUNÇÃO GERADORA DE CONTRATO ---
-window.gerarContratoPDF = async (id, acaoOuCodigo = "NOVO") => {
+window.gerarContratoPDF = async (id, acaoOuCodigo = null) => {
     const item = todosImoveis.find(i => i.id === id);
     if (!item) {
         alert("Imóvel não encontrado!");
         return;
     }
     const i = item.data;
-    if (i.contratoAssinadoAnexo) {
+
+    // 1. Se já tem contrato assinado anexado, baixa ele e encerra.
+    // Isso garante que o botão "Gerar Contrato" sirva o contrato definitivo assinado!
+    if (i.contratoAssinadoAnexo && (!acaoOuCodigo || acaoOuCodigo === "NOVO")) {
         const btnOriginal = document.getElementById('btnGerarContrato');
         if(btnOriginal) {
             const htmlAntigo = btnOriginal.innerHTML;
@@ -837,14 +851,14 @@ window.gerarContratoPDF = async (id, acaoOuCodigo = "NOVO") => {
         link.click();
         return; // Encerra a função aqui para não rodar o pdfmake
     }
+
     const historico = i.historicoContratos || {};
-    
     let authCode;
     let acao;
-
     let dadosImpressao = { ...i }; 
 
-    if (historico[acaoOuCodigo]) {
+    // 2. Verifica se o usuário pediu uma via específica do histórico antigo
+    if (acaoOuCodigo && historico[acaoOuCodigo]) {
         acao = "SEGUNDA_VIA";
         authCode = acaoOuCodigo;
         
@@ -853,32 +867,51 @@ window.gerarContratoPDF = async (id, acaoOuCodigo = "NOVO") => {
         dadosImpressao.valor = registroAntigo.valor;
         dadosImpressao.prazoContrato = registroAntigo.prazo;
         dadosImpressao.dataInicio = registroAntigo.dataInicio;
-        // Puxando os dados completos do passado
         dadosImpressao.rg = registroAntigo.rg || dadosImpressao.rg;
         dadosImpressao.cpf = registroAntigo.cpf || dadosImpressao.cpf;
         dadosImpressao.endereco = registroAntigo.endereco || dadosImpressao.endereco;
         
     } else {
-        acao = "NOVO";
-        authCode = `NJ-${id.substring(0, 4)}-${Date.now().toString().slice(-6)}`.toUpperCase();
+        // 3. INTELIGÊNCIA: Verifica se JÁ EXISTE contrato emitido para este inquilino
+        let contratoEmVigor = null;
+        const listaContratos = Object.entries(historico);
+        
+        if (listaContratos.length > 0) {
+            // Ordena do mais recente pro mais antigo
+            listaContratos.sort((a, b) => new Date(b[1].dataEmissao) - new Date(a[1].dataEmissao));
+            
+            // Se o contrato mais recente pertence ao inquilino atual, reaproveita!
+            if (listaContratos[0][1].inquilino === i.inquilino) {
+                contratoEmVigor = listaContratos[0];
+            }
+        }
+
+        if (contratoEmVigor) {
+            acao = "VIA_ATIVA";
+            authCode = contratoEmVigor[0]; // Pega o código do contrato existente
+        } else {
+            // Só gera um código de autenticação NOVO se realmente for um novo morador
+            acao = "NOVO";
+            authCode = `NJ-${id.substring(0, 4)}-${Date.now().toString().slice(-6)}`.toUpperCase();
+        }
     }
 
     const dataInicioSegura = dadosImpressao.dataInicio || new Date().toISOString().split('T')[0];
 
-    if (acao !== "SEGUNDA_VIA") {
+    // 4. Só salva no Firebase se for um contrato NOVO (evita criar 10 contratos iguais)
+    if (acao === "NOVO") {
         try {
             const { updateDoc, doc, db } = window.FirebaseConfig;
             
             await updateDoc(doc(db, "imoveis", id), {
                 [`historicoContratos.${authCode}`]: {
                     tipo: "CONTRATO",
-                    status: acao,
+                    status: "ATIVO",
                     dataEmissao: new Date().toISOString(),
                     dataInicio: dadosImpressao.dataInicio || "", 
                     prazo: dadosImpressao.prazoContrato || 12,
                     inquilino: dadosImpressao.inquilino || "Não Informado",
                     valor: dadosImpressao.valor || 0,
-                    // Salvando o snapshot completo do inquilino
                     rg: dadosImpressao.rg || "",
                     cpf: dadosImpressao.cpf || "",
                     endereco: dadosImpressao.endereco?.completo ? dadosImpressao.endereco.completo : (dadosImpressao.endereco || "")
@@ -915,6 +948,7 @@ window.gerarContratoPDF = async (id, acaoOuCodigo = "NOVO") => {
         inquilino: dadosImpressao.inquilino || "Não Informado",
         rg: dadosImpressao.rg || "___",
         cpf: dadosImpressao.cpf || "___",
+        telefone: dadosImpressao.telefone || "",
         endereco: dadosImpressao.endereco?.completo ? dadosImpressao.endereco.completo : (dadosImpressao.endereco || "Endereço não informado"),
         valorFormatado: valorFormatado,
         dataInicio: dataInicioFormatada,
@@ -925,15 +959,13 @@ window.gerarContratoPDF = async (id, acaoOuCodigo = "NOVO") => {
         dataExtenso: dataHojeExtenso
     };
 
-    // --- ESCOLHE QUAL PDF GERAR: FIXO OU TEMPORADA ---
     let docDefinition;
     
+    // --- ESCOLHE QUAL PDF GERAR: FIXO OU TEMPORADA ---
     if (dadosImpressao.tipoLocacao === 'temporada') {
-        // Pega as datas exatas de check-in e check-out
         const ci = new Date((dadosImpressao.dataCheckin || dataInicioSegura) + 'T00:00:00');
         const co = new Date((dadosImpressao.dataCheckout || dataInicioSegura) + 'T00:00:00');
         
-        // Ajusta as variáveis para o modelo de temporada
         dadosContrato.dataInicio = ci.toLocaleDateString('pt-BR');
         dadosContrato.dataFim = co.toLocaleDateString('pt-BR');
         dadosContrato.quantidadeDiarias = dadosImpressao.quantidadeDiarias || 0;
@@ -943,18 +975,27 @@ window.gerarContratoPDF = async (id, acaoOuCodigo = "NOVO") => {
         dadosContrato.qtdHospedes = dadosImpressao.qtdHospedes;
         dadosContrato.valorFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dadosImpressao.valorPacoteTemporada || 0);
         dadosContrato.titulo = 'CONTRATO DE LOCAÇÃO POR TEMPORADA';
+
+        const fMoeda = (val) => new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'}).format(val || 0);
+        const fData = (d) => d ? d.split('-').reverse().join('/') : '___/___/____';
         
-        // Chama a função que desenha o contrato de temporada
+        dadosContrato.valorReservaFormatado = fMoeda(dadosImpressao.valorReserva);
+        dadosContrato.saldoRemanescenteFormatado = fMoeda((dadosImpressao.valorPacoteTemporada || 0) - (dadosImpressao.valorReserva || 0));
+        dadosContrato.dataReservaFormatada = fData(dadosImpressao.dataPagamentoReserva);
+        dadosContrato.vencimentoSaldoFormatado = fData(dadosImpressao.vencimentoSaldo);
+        dadosContrato.formaPagamento = dadosImpressao.formaPagamentoReserva || 'PIX';
+        dadosContrato.valorCaucaoFormatado = fMoeda(dadosImpressao.valorCaucao);
+        dadosContrato.taxaLimpezaFormatada = fMoeda(dadosImpressao.taxaLimpeza);
+        
         docDefinition = construirDefinicaoContratoTemporada(dadosContrato);
     } else {
-        // Chama a função do contrato residencial normal que você já tem
         docDefinition = construirDefinicaoContrato(dadosContrato);
     }
     
     pdfMake.createPdf(docDefinition).download(`Contrato_${(dadosContrato.inquilino || 'NJ_Imoveis').split(' ')[0]}.pdf`, () => {
         console.log("Documento gerado com sucesso!");
     });
-};
+}
 
 // --- FUNÇÃO GERADORA DE RECIBO COM SEGURANÇA, HISTÓRICO E SEGUNDA VIA (NJ IMÓVEIS) ---
 window.gerarReciboPDF = async (id, mesOuCodigo = null) => {
@@ -1510,10 +1551,10 @@ const construirDefinicaoContrato = (dados) => {
     };
 };
 
-// --- MOLDE DO CONTRATO DE TEMPORADA (BLINDADO - VERSÃO FINAL) ---
+// --- MOLDE DO CONTRATO DE TEMPORADA (AUTOMATIZADO) ---
 const construirDefinicaoContratoTemporada = (dados) => {
     const { 
-        titulo, subtitulo, inquilino, rg, cpf, endereco, valorFormatado, 
+        titulo, subtitulo, inquilino, rg, cpf, telefone, endereco, valorFormatado, 
         dataInicio, dataFim, authCode, dataExtenso 
     } = dados;
 
@@ -1529,88 +1570,251 @@ const construirDefinicaoContratoTemporada = (dados) => {
     const horaIn = dados.horaCheckin || '14:00';
     const horaOut = dados.horaCheckout || '12:00';
     const hospedes = dados.qtdHospedes || '2';
+    const qtdDiarias = dados.quantidadeDiarias || '0';
+    const valorDiaria = dados.valorDiariaFormatado || 'R$ 0,00';
 
     return {
         pageSize: 'A4',
-        pageMargins: [50, 60, 50, 60], 
+        pageMargins: [40, 50, 40, 50], 
         
         content: [
-            ...(subtitulo ? [{ text: subtitulo, alignment: 'right', fontSize: 10, italics: true, margin: [0, 0, 0, 15] }] : []),
+            ...(subtitulo ? [{ text: subtitulo, alignment: 'right', fontSize: 10, italics: true, margin: [0, 0, 0, 3] }] : []),
 
-            { text: titulo, style: 'header' },
+            { text: 'CONTRATO DE LOCAÇÃO POR TEMPORADA', style: 'header' },
             
-            { 
-                text: [
-                    { text: 'LOCATÁRIO(A) (HÓSPEDE): ', bold: true },
-                    `${nomeInquilinoSeguro}, portador(a) da cédula de identidade R.G./Passaporte n° `,
-                    { text: rg || "___", bold: true },
-                    `, e CPF nº `,
-                    { text: cpf || "___", bold: true },
-                    '.\n\n',
-                    { text: 'LOCADOR(A): ', bold: true },
-                    'NIELSON FLORENCIO DA SILVA, brasileiro, casado, portador da cédula de identidade R.G. n.º 6461460 SDS-PE e CPF n.°046.304.114-37, residente e domiciliado em Palmares-PE.'
-                ], 
-                style: 'paragraph',
-                margin: [0, 0, 0, 15] 
+            { text: 'QUALIFICAÇÃO DAS PARTES', style: 'clauseTitle' },
+            { text: 'LOCADOR: NIELSON FLORENCIO DA SILVA, brasileiro, casado, portador da cédula de identidade RG nº 6.461.460 SDS-PE e CPF nº 046.304.114-37, residente e domiciliado em Palmares/PE.', style: 'paragraph' },
+            { text: `LOCATÁRIO/HÓSPEDE: ${nomeInquilinoSeguro}, portador da cédula de identidade RG/Passaporte nº ${rg || "___"} e CPF nº ${cpf || "___"}.`, style: 'paragraph', margin: [0, 0, 0, 10] },
+
+            { text: 'CLÁUSULA PRIMEIRA – DO OBJETO E DA FINALIDADE DA LOCAÇÃO', style: 'clauseTitle' },
+            { text: `O presente contrato tem por objeto a locação por temporada do imóvel residencial mobiliado situado na ${enderecoSeguro}.`, style: 'paragraph' },
+            { text: 'O imóvel será utilizado exclusivamente para hospedagem temporária, lazer e estadia residencial, sendo vedada sua utilização para atividade comercial, profissional, realização de eventos, festas, reuniões de grande porte ou qualquer finalidade incompatível com sua natureza residencial.', style: 'paragraph' },
+            { text: 'É vedada a sublocação, cessão, empréstimo, hospedagem remunerada de terceiros ou disponibilização do imóvel a terceiros sem autorização prévia e expressa do LOCADOR.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO deverá observar integralmente a Convenção Condominial, o Regimento Interno e demais normas aplicáveis ao edifício.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA SEGUNDA – DO PRAZO, CHECK-IN E CHECK-OUT', style: 'clauseTitle' },
+            { text: `A locação terá início em ${dataInicio}, às ${horaIn}h, e terminará, de forma improrrogável, em ${dataFim}, às ${horaOut}h, totalizando ${qtdDiarias} diária(s).`, style: 'paragraph' },
+            { text: 'Alterações de horário dependerão de autorização prévia do LOCADOR e da disponibilidade do imóvel.', style: 'paragraph' },
+            { text: `Será concedida tolerância de 30 minutos para o check-out. Após esse período, a permanência sem autorização sujeitará o LOCATÁRIO ao pagamento de ${valorDiaria}, equivalente a uma diária adicional, sem prejuízo de prejuízos comprovados causados ao LOCADOR, inclusive pela impossibilidade de entrada de novo hóspede.`, style: 'paragraph' },
+            { text: 'O abandono antecipado do imóvel pelo LOCATÁRIO, por motivo não imputável ao LOCADOR, não gera restituição automática das diárias não utilizadas.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA TERCEIRA – DO VALOR DA LOCAÇÃO', style: 'clauseTitle' },
+            { text: `O valor da diária é de ${valorDiaria} e o pacote contratado totaliza ${valorFormatado}.`, style: 'paragraph' },
+            { text: `Valor pago como confirmação da reserva: ${dados.valorReservaFormatado || 'R$ 0,00'}\nSaldo remanescente: ${dados.saldoRemanescenteFormatado || 'R$ 0,00'}\nVencimento: ${dados.vencimentoSaldoFormatado || '___/___/____'}\nData do pagamento do sinal: ${dados.dataReservaFormatada || '___/___/____'}\nForma de pagamento: ${dados.formaPagamento || 'PIX'}`, style: 'paragraph' },
+            { text: 'O pagamento somente será considerado realizado após a efetiva compensação ou confirmação do crédito em favor do LOCADOR.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA QUARTA – DA CONFIRMAÇÃO DA RESERVA E DO SALDO', style: 'clauseTitle' },
+            { text: 'A reserva somente será considerada definitivamente confirmada após a efetiva identificação do pagamento do valor estipulado para sua confirmação.', style: 'paragraph' },
+            { text: 'O saldo remanescente deverá ser integralmente quitado até a data indicada na Cláusula Terceira.', style: 'paragraph' },
+            { text: 'O não pagamento do saldo no prazo estabelecido, após comunicação ao LOCATÁRIO, poderá acarretar o cancelamento da reserva por inadimplemento, aplicando-se as regras deste contrato.', style: 'paragraph' },
+            { text: 'Considerando a proximidade entre a data de assinatura e o check-in desta reserva, as partes deverão preencher expressamente o vencimento efetivo do saldo.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA QUINTA – DO LIMITE E DA IDENTIFICAÇÃO DOS HÓSPEDES', style: 'clauseTitle' },
+            { text: `O imóvel poderá ser ocupado por, no máximo, ${hospedes} pessoa(s), incluindo o LOCATÁRIO.`, style: 'paragraph' },
+            { text: 'O LOCATÁRIO deverá informar previamente ao LOCADOR os nomes das pessoas que permanecerão no imóvel.', style: 'paragraph' },
+            { text: `Hóspedes autorizados:\n1. ${nomeInquilinoSeguro} - LOCATÁRIO\n2. ________________________________________________\n3. ________________________________________________\n4. ________________________________________________`, style: 'paragraph', margin: [0, 5, 0, 5] },
+            { text: 'O excesso de ocupantes ou a hospedagem de pessoa não autorizada constituirá infração contratual grave, sujeitando o LOCATÁRIO à rescisão, às perdas e danos comprovados e às multas eventualmente aplicadas pelo condomínio.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA SEXTA – DA PROIBIÇÃO DE SUBLOCAÇÃO, CESSÃO E EMPRÉSTIMO', style: 'clauseTitle' },
+            { text: 'É expressamente proibido sublocar, ceder, emprestar, anunciar ou disponibilizar o imóvel a terceiros, bem como utilizá-lo para exploração comercial ou atividade remunerada.', style: 'paragraph' },
+            { text: 'O descumprimento desta cláusula será considerado falta contratual grave.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA SÉTIMA – DO INVENTÁRIO, VISTORIA E ESTADO DO IMÓVEL', style: 'clauseTitle' },
+            { text: 'O imóvel será entregue mobiliado, juntamente com móveis, eletrodomésticos, utensílios e demais bens relacionados no ANEXO I - INVENTÁRIO E VISTORIA, que integra este contrato.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO deverá conferir o imóvel e comunicar ao LOCADOR, preferencialmente imediatamente após o check-in, qualquer defeito, avaria ou divergência constatada.', style: 'paragraph' },
+            { text: 'Fotografias e/ou vídeos realizados antes, durante ou após a hospedagem poderão ser utilizados como elementos de comprovação do estado do imóvel e de seus bens.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO deverá devolver o imóvel e seus bens nas condições em que os recebeu.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA OITAVA – DOS DANOS, PERDAS E EXTRAVIOS', style: 'clauseTitle' },
+            { text: 'O LOCATÁRIO responderá pelos danos materiais comprovadamente causados por ele, seus acompanhantes ou visitantes ao imóvel, móveis, equipamentos, utensílios e demais bens disponibilizados.', style: 'paragraph' },
+            { text: 'A responsabilidade poderá abranger reparação, reposição, substituição, mão de obra, transporte, assistência técnica, limpeza extraordinária e demais despesas diretamente relacionadas ao dano.', style: 'paragraph' },
+            { text: 'Não serão atribuídos ao LOCATÁRIO danos decorrentes exclusivamente de desgaste natural, defeito preexistente, vício estrutural ou falha de manutenção não provocada por ele ou seus acompanhantes.', style: 'paragraph' },
+            { text: 'O LOCADOR poderá apresentar orçamento, nota fiscal, comprovante de serviço ou outro elemento razoável para demonstrar o prejuízo. O ressarcimento deverá ocorrer em até 05 (cinco) dias úteis da comunicação.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA NONA – DA CAUÇÃO', style: 'clauseTitle' },
+            { text: `A título de garantia, será exigida caução no valor de ${dados.valorCaucaoFormatado || 'R$ 0,00'}.`, style: 'paragraph' },
+            { text: 'A caução poderá ser utilizada para compensar valores comprovadamente devidos por danos, extravio de bens, perda de chaves/controles, multas condominiais causadas pelo LOCATÁRIO, limpeza extraordinária e demais despesas diretamente decorrentes de descumprimento contratual.', style: 'paragraph' },
+            { text: 'Inexistindo débitos ou danos pendentes, eventual saldo da caução será devolvido após a vistoria de saída e conferência dos bens. Havendo necessidade de apuração, a devolução ocorrerá após sua conclusão.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA – DAS REGRAS DE SILÊNCIO E CONVIVÊNCIA', style: 'clauseTitle' },
+            { text: 'O LOCATÁRIO e seus acompanhantes deverão respeitar integralmente as normas de silêncio, segurança e boa convivência.', style: 'paragraph' },
+            { text: 'É proibido realizar festas ou eventos, utilizar caixas de som em volume incompatível com ambiente residencial, utilizar som automotivo ou praticar atos que perturbem o sossego ou comprometam a segurança.', style: 'paragraph' },
+            { text: 'O descumprimento poderá ensejar rescisão contratual, sem prejuízo de multas, perdas e danos e demais medidas legalmente cabíveis.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO responderá pelas multas eventualmente aplicadas pelo condomínio em razão de atos praticados por ele ou seus acompanhantes.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA PRIMEIRA – DAS REGRAS DO CONDOMÍNIO', style: 'clauseTitle' },
+            { text: 'O LOCATÁRIO deverá observar a Convenção Condominial, o Regimento Interno e as regras relativas a garagem, piscina, elevadores, áreas comuns, visitantes, lixo, animais, segurança e circulação.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO será responsável pelas consequências de infrações praticadas por seus acompanhantes e visitantes.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA SEGUNDA – DA LIMPEZA E DO LIXO', style: 'clauseTitle' },
+            { text: 'O LOCATÁRIO deverá manter o imóvel em condições adequadas de higiene e retirar o lixo ao final da estadia.', style: 'paragraph' },
+            { text: 'Será considerada limpeza extraordinária aquela que exceder significativamente o padrão normalmente necessário após uma hospedagem.', style: 'paragraph' },
+            { text: `Nessa hipótese, poderá ser cobrada taxa de ${dados.taxaLimpezaFormatada || 'R$ 0,00'}. Se situação excepcional gerar custo superior, o LOCADOR poderá cobrar a diferença mediante comprovação.`, style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA TERCEIRA – DE ANIMAIS', style: 'clauseTitle' },
+            { text: 'A permanência de animais dependerá de autorização prévia e expressa do LOCADOR e do cumprimento das regras do condomínio.', style: 'paragraph' },
+            { text: 'Quando autorizada, a permanência do animal não afastará a responsabilidade do LOCATÁRIO por danos, sujeiras, odores, multas ou despesas extraordinárias comprovadamente decorrentes de sua presença.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA QUARTA – DOS VISITANTES', style: 'clauseTitle' },
+            { text: 'A presença de visitantes deverá respeitar a capacidade máxima do imóvel e as regras do condomínio.', style: 'paragraph' },
+            { text: 'Visitantes não poderão utilizar o imóvel para festas, eventos ou reuniões incompatíveis com este contrato.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO responderá pelos atos praticados por seus visitantes durante a permanência no imóvel.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA QUINTA – DAS CHAVES, CONTROLES E DISPOSITIVOS DE ACESSO', style: 'clauseTitle' },
+            { text: 'Ao final da estadia, o LOCATÁRIO deverá devolver todas as chaves, controles, cartões, tags e demais dispositivos de acesso.', style: 'paragraph' },
+            { text: 'A perda, dano ou não devolução sujeitará o LOCATÁRIO ao ressarcimento dos custos de reposição, programação, substituição ou reparação.', style: 'paragraph' },
+            { text: 'É proibida a produção de cópias de chaves ou dispositivos sem autorização do LOCADOR.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA SEXTA – DA MANUTENÇÃO E DOS DEFEITOS', style: 'clauseTitle' },
+            { text: 'O LOCADOR será responsável por defeitos estruturais, vícios preexistentes ou problemas de manutenção não causados pelo LOCATÁRIO.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO deverá comunicar imediatamente qualquer vazamento, falha elétrica, defeito em equipamento, problema hidráulico ou ocorrência que possa provocar dano.', style: 'paragraph' },
+            { text: 'O LOCATÁRIO deverá permitir acesso para reparos necessários, mediante comunicação prévia, ressalvadas situações emergenciais.', style: 'paragraph' },
+            { text: 'É proibida qualquer reforma, instalação, perfuração ou alteração elétrica/hidráulica sem autorização expressa do LOCADOR.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA SÉTIMA – DO CANCELAMENTO PELO LOCATÁRIO', style: 'clauseTitle' },
+            { text: 'O cancelamento deverá ser comunicado por escrito ao LOCADOR.', style: 'paragraph' },
+            { text: 'Solicitações com antecedência mínima de 15 (quinze) dias do check-in poderão, a critério do LOCADOR e conforme disponibilidade, ser convertidas em crédito para futura remarcação.', style: 'paragraph' },
+            { text: 'A remarcação dependerá de disponibilidade e deverá ocorrer em até 06 (seis) meses da data original do check-in.', style: 'paragraph' },
+            { text: 'Se a nova data tiver valor superior, o LOCATÁRIO pagará a diferença. Se tiver valor inferior, eventual diferença será convertida em crédito, salvo acordo escrito diverso.', style: 'paragraph' },
+            { text: 'Cancelamentos com menos de 15 (quinze) dias de antecedência e no-show não gerarão devolução automática do valor pago, sem prejuízo de eventual acordo de remarcação expressamente aceito pelo LOCADOR.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA OITAVA – DO NO-SHOW', style: 'clauseTitle' },
+            { text: 'Será considerado no-show o não comparecimento do LOCATÁRIO na data e horário contratados, sem comunicação prévia e sem acordo de remarcação.', style: 'paragraph' },
+            { text: 'O no-show será tratado como cancelamento de última hora e não implicará prorrogação ou transferência automática das diárias.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA DÉCIMA NONA – DA REMARCAÇÃO', style: 'clauseTitle' },
+            { text: 'A remarcação poderá ser solicitada com antecedência mínima de 15 (quinze) dias do check-in originalmente contratado.', style: 'paragraph' },
+            { text: 'A remarcação dependerá da disponibilidade do imóvel e de concordância expressa do LOCADOR.', style: 'paragraph' },
+            { text: 'A nova data não poderá prejudicar reservas já confirmadas. Em alta temporada, feriados ou períodos de valor superior, será devida a diferença.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA – DA IMPOSSIBILIDADE DE DISPONIBILIZAÇÃO PELO LOCADOR', style: 'clauseTitle' },
+            { text: 'Se, por circunstância imputável ao LOCADOR, o imóvel não puder ser disponibilizado, o LOCADOR comunicará o LOCATÁRIO assim que tiver conhecimento.', style: 'paragraph' },
+            { text: 'As partes poderão, de comum acordo, remarcar a estadia ou o LOCADOR restituirá os valores efetivamente recebidos referentes ao período que não puder ser disponibilizado.', style: 'paragraph' },
+            { text: 'Em caso de fato imprevisível ou inevitável, serão adotadas medidas razoáveis para solução, inclusive remarcação ou restituição proporcional dos valores relativos ao período não utilizado, conforme o caso concreto.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA PRIMEIRA – DO DESCUMPRIMENTO CONTRATUAL', style: 'clauseTitle' },
+            { text: 'Constituem descumprimento, entre outras hipóteses: exceder o limite de hóspedes; sublocar/ceder o imóvel; realizar festas proibidas; causar danos; descumprir regras do condomínio; não pagar os valores; utilizar o imóvel para finalidade diversa; ou prestar informações falsas relevantes.', style: 'paragraph' },
+            { text: 'O descumprimento poderá acarretar rescisão, cobrança dos valores devidos, perdas e danos e adoção das medidas extrajudiciais e judiciais cabíveis.', style: 'paragraph' },
+            { text: 'Nenhuma disposição autoriza retirada física unilateral do LOCATÁRIO pelo LOCADOR. Eventual desocupação deverá observar os meios legalmente cabíveis.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA SEGUNDA – DA RESPONSABILIDADE POR ACOMPANHANTES E VISITANTES', style: 'clauseTitle' },
+            { text: 'O LOCATÁRIO responderá, perante o LOCADOR, pelos atos de seus acompanhantes e visitantes no que se refere às obrigações deste contrato.', style: 'paragraph' },
+            { text: 'Multas, danos ou despesas comprovadamente causados por essas pessoas serão considerados obrigações do LOCATÁRIO perante o LOCADOR.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA TERCEIRA – DA COMUNICAÇÃO', style: 'clauseTitle' },
+            { text: 'LOCADOR:\nTelefone/WhatsApp: (81) 99926-1162', style: 'paragraph' },
+            { text: `LOCATÁRIO:\nTelefone/WhatsApp: ${telefone || '______________________________'}`, style: 'paragraph' },
+            { text: 'As partes comprometem-se a manter seus dados de contato atualizados.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA QUARTA – DA PROVA E DOS REGISTROS', style: 'clauseTitle' },
+            { text: 'Fotografias, vídeos, mensagens, comprovantes de pagamento, registros de entrada e saída, inventário, vistoria e demais documentos relacionados à hospedagem poderão ser utilizados para demonstrar o cumprimento ou descumprimento das obrigações.', style: 'paragraph' },
+            { text: 'O contrato e seus anexos poderão ser assinados fisicamente ou por meio eletrônico que permita identificar os signatários e preservar a integridade do documento.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA QUINTA – DA INTEGRALIDADE DO CONTRATO', style: 'clauseTitle' },
+            { text: 'O presente instrumento e seus anexos constituem o acordo integral entre as partes.', style: 'paragraph' },
+            { text: 'Alterações deverão ser formalizadas por escrito, inclusive por meio eletrônico que permita identificar a manifestação das partes.', style: 'paragraph' },
+            { text: 'A eventual tolerância de uma parte quanto ao descumprimento de obrigação não constituirá renúncia a direito ou precedente para situação posterior.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA SEXTA – DO FORO', style: 'clauseTitle' },
+            { text: 'Fica eleito o foro da Comarca de Palmares/PE, conforme pactuado pelas partes, para dirimir questões decorrentes deste contrato, ressalvadas hipóteses em que a legislação aplicável determine ou impeça a eleição contratual.', style: 'paragraph' },
+
+            { text: 'CLÁUSULA VIGÉSIMA SÉTIMA – DA DECLARAÇÃO FINAL', style: 'clauseTitle' },
+            { text: 'O LOCATÁRIO declara que leu e compreendeu integralmente o contrato, recebeu informações suficientes sobre a utilização do imóvel, está ciente das regras de ocupação e do condomínio, responsabiliza-se por acompanhantes e visitantes e devolverá o imóvel e seus bens nas condições em que os recebeu, ressalvado o desgaste natural.', style: 'paragraph' },
+            { text: 'O LOCADOR declara que disponibilizará o imóvel para a finalidade e período contratados, observadas as condições deste instrumento.', style: 'paragraph', margin: [0, 0, 0, 15] },
+
+            // ANEXOS
+            { text: 'ANEXO I\nINVENTÁRIO E VISTORIA DO IMÓVEL', style: 'header', pageBreak: 'before' },
+            { text: 'Este anexo integra o contrato e deverá ser conferido na entrada e na saída do imóvel. O preenchimento detalhado é recomendado para documentar o estado dos bens.', style: 'paragraph', margin: [0, 0, 0, 10] },
+
+            {
+                table: {
+                    headerRows: 1,
+                    widths: ['*', 'auto', 'auto', 'auto', '*'],
+                    body: [
+                        [{text: 'ITEM', bold: true}, {text: 'QTD.', bold: true}, {text: 'ENTRADA', bold: true}, {text: 'SAÍDA', bold: true}, {text: 'OBSERVAÇÕES', bold: true}],
+                        ['TV', '___', '___', '___', '___'],
+                        ['Geladeira', '___', '___', '___', '___'],
+                        ['Fogão', '___', '___', '___', '___'],
+                        ['Micro-ondas', '___', '___', '___', '___'],
+                        ['Ar-condicionado', '___', '___', '___', '___'],
+                        ['Cama(s)', '___', '___', '___', '___'],
+                        ['Sofá', '___', '___', '___', '___'],
+                        ['Mesa/cadeiras', '___', '___', '___', '___'],
+                        ['Panelas', '___', '___', '___', '___'],
+                        ['Pratos/copos/talheres', '___', '___', '___', '___'],
+                        ['Toalhas', '___', '___', '___', '___'],
+                        ['Roupas de cama', '___', '___', '___', '___'],
+                        ['Controles remotos', '___', '___', '___', '___'],
+                        ['Chaves', '___', '___', '___', '___'],
+                        ['Tag/cartão de acesso', '___', '___', '___', '___'],
+                        ['Outros', '___', '___', '___', '___']
+                    ]
+                },
+                margin: [0, 10, 0, 15],
+                fontSize: 10
             },
+            { text: 'Observações da vistoria de entrada:\n_________________________________________________________________________________\n_________________________________________________________________________________\n', style: 'paragraph' },
+            { text: 'Observações da vistoria de saída:\n_________________________________________________________________________________\n_________________________________________________________________________________', style: 'paragraph', margin: [0, 0, 0, 20] },
 
-            { text: [{ text: 'CLÁUSULA PRIMEIRA (DO OBJETO): ', bold: true }, 'O objeto deste contrato é a locação por temporada do imóvel mobiliado, situado à ', { text: enderecoSeguro, bold: true }, ', exclusivamente para fins de lazer e estadia temporária.'], style: 'paragraph' },
-            
-            { text: [{ text: 'CLÁUSULA SEGUNDA (DO PRAZO E HORÁRIOS): ', bold: true }, `A presente locação terá início no dia `, { text: dataInicio, bold: true }, ` a partir das `, { text: `${horaIn} horas`, bold: true }, ` (Check-in), e término improrrogável no dia `, { text: dataFim, bold: true }, ` até as `, { text: `${horaOut} horas`, bold: true }, ` (Check-out). A permanência no imóvel após o horário estipulado de saída acarretará em multa equivalente ao valor de 01 (uma) nova diária.` ], style: 'paragraph' },
-            
-            { text: [{ text: 'CLÁUSULA TERCEIRA (DO VALOR E DIÁRIAS): ', bold: true }, `A presente locação compreende um total de `, { text: `${dados.quantidadeDiarias} diária(s)`, bold: true }, `, pelo valor unitário de `, { text: dados.valorDiariaFormatado || 'R$ 0,00', bold: true }, `. Sendo assim, o valor total ajustado pelo pacote de temporada é de `, { text: valorFormatado, bold: true }, ', a ser pago conforme estabelecido nas cláusulas a seguir.'], style: 'paragraph' },
-            
-            { text: [{ text: 'CLÁUSULA QUARTA (DA CONSERVAÇÃO E MÓVEIS): ', bold: true }, 'O LOCATÁRIO declara receber o imóvel e todos os seus móveis, eletrodomésticos e utensílios em perfeito estado de conservação, limpeza e funcionamento. Obriga-se a zelar pelos mesmos e a entregá-los nas exatas condições em que os recebeu, sendo inteiramente responsável por ressarcir o LOCADOR por qualquer dano, quebra ou extravio.'], style: 'paragraph' },
-            
-            { text: [{ text: 'CLÁUSULA QUINTA (DO LIMITE DE HÓSPEDES): ', bold: true }, `Fica expressamente estabelecido que o imóvel será ocupado por, no máximo, `, { text: `${hospedes} pessoa(s)`, bold: true }, `. É terminantemente proibido exceder este limite, bem como sublocar, ceder ou emprestar o imóvel a terceiros sem prévia e expressa autorização do LOCADOR.`], style: 'paragraph' },
+            { text: 'ANEXO II\nREGRAS ESPECÍFICAS DO CONDOMÍNIO', style: 'header' },
+            { text: 'O LOCATÁRIO declara ciência de que deverá observar as regras do condomínio, especialmente quanto a silêncio, áreas comuns, piscina, elevadores, garagem, visitantes, descarte de lixo, animais, segurança e circulação.\n\nEspaço para anexar ou transcrever as regras específicas fornecidas pelo condomínio:\n_________________________________________________________________________________\n_________________________________________________________________________________\n_________________________________________________________________________________', style: 'paragraph', margin: [0, 0, 0, 20] },
 
-            { text: [{ text: 'CLÁUSULA SEXTA (DA LEI DO SILÊNCIO E CONVIVÊNCIA): ', bold: true }, 'O LOCATÁRIO e seus acompanhantes obrigam-se a respeitar a Lei do Silêncio. É rigorosamente proibido o uso de som automotivo, caixas de som de alta potência ou a realização de festas e eventos que perturbem o sossego da vizinhança. O descumprimento desta regra sujeita o infrator à rescisão imediata deste contrato, acionamento das autoridades competentes e desocupação compulsória do imóvel, sem qualquer devolução de valores pagos.'], style: 'paragraph' },
+            // ASSINATURAS E TESTEMUNHAS
+            { text: 'ASSINATURAS', style: 'header', pageBreak: 'before' },
+            { text: 'E, por estarem de acordo com todas as cláusulas e condições acima, as partes assinam o presente instrumento e seus anexos, declarando ter lido e compreendido integralmente seu conteúdo.', style: 'paragraph' },
+            { text: `Palmares/PE, ${dataExtenso || "__/__/____"}.`, alignment: 'right', margin: [0, 10, 0, 20], fontSize: 11 },
 
-            { text: [{ text: 'CLÁUSULA SÉTIMA (DA HIGIENE E LIXO): ', bold: true }, 'O LOCATÁRIO deverá entregar o imóvel livre de acúmulo de lixo e sem restos de alimentos perecíveis expostos, depositando os resíduos nas lixeiras adequadas. A necessidade de limpeza extrema ou recolhimento de lixo anormal por parte do LOCADOR acarretará na cobrança de uma taxa extra de limpeza.'], style: 'paragraph' },
+            ...(temAssinaturaValida ? [{ image: ASSINATURA_BASE64, width: 130, alignment: 'center', margin: [0, -10, 0, 0] }] : []),
+            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 1 }], alignment: 'center' },
+            { text: 'NIELSON FLORÊNCIO DA SILVA\nLOCADOR\nCPF nº 046.304.114-37', style: 'signName', margin: [0, 0, 0, 20] },
 
-            { text: [{ text: 'CLÁUSULA OITAVA (DA RESERVA E CANCELAMENTO): ', bold: true }, 'Fica estabelecido que o valor depositado antecipadamente a título de confirmação de reserva não será devolvido em dinheiro sob nenhuma hipótese em caso de desistência ou não comparecimento (no-show). Contudo, a fim de não onerar o LOCATÁRIO, as medidas cabíveis para a preservação do valor pago, mediante a conversão em crédito para remarcação de datas, encontram-se detalhadas e condicionadas aos prazos da Cláusula Décima deste instrumento.'], style: 'paragraph' },
+            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 1 }], alignment: 'center' },
+            { text: `${nomeInquilinoSeguro}\nLOCATÁRIO/HÓSPEDE\nCPF nº ${cpf || "___"}`, style: 'signName', margin: [0, 0, 0, 20] },
 
-            { text: [{ text: 'CLÁUSULA NONA (DO PAGAMENTO DO SALDO REMANESCENTE): ', bold: true }, 'O pagamento do saldo remanescente referente ao pacote contratado deverá ser efetuado, impreterivelmente, com até 15 (quinze) dias de antecedência da data programada para o Check-in. A falta de pagamento e de sua respectiva verificação por parte do LOCADOR neste prazo configurará cancelamento automático da reserva por inadimplência, ocorrendo a perda do valor de confirmação inicial citado na Cláusula Oitava.'], style: 'paragraph' },
-
-            { text: [{ text: 'CLÁUSULA DÉCIMA (DA REMARCAÇÃO DE DATAS): ', bold: true }, 'Caso o LOCATÁRIO fique impossibilitado de cumprir a estadia e deseje reagendar, deverá comunicar o LOCADOR com antecedência mínima de 15 (quinze) dias da data original do Check-in. Cumprido este aviso prévio rigoroso, será permitida a remarcação para uma nova data de perfil equivalente, ficando a nova escolha estritamente sujeita à disponibilidade na agenda do LOCADOR. Caso a nova data escolhida recaia em Alta Temporada ou Feriado prolongado, o LOCATÁRIO obriga-se a arcar com a diferença de valores do novo pacote.'], style: 'paragraph' },
-
-            { text: [{ text: 'CLÁUSULA DÉCIMA PRIMEIRA (DO FORO): ', bold: true }, 'As partes elegem o Foro da Cidade de Palmares-PE para dirimir quaisquer dúvidas decorrentes deste contrato.'], style: 'paragraph' },
-
-            { text: 'E, por assim estarem justos e contratados assinam o presente instrumento em duas (02) vias, para um só efeito.', style: 'paragraph', margin: [0, 10, 0, 10] },
-
-            { text: `Palmares-PE, ${dataExtenso || "__/__/____"}.`, alignment: 'right', margin: [0, 15, 0, 30] },
-
-            ...(temAssinaturaValida ? [{ image: ASSINATURA_BASE64, width: 150, alignment: 'center', margin: [0, -20, 0, 0] }] : []),
-            
-            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 300, y2: 0, lineWidth: 1 }], alignment: 'center' },
-            { text: 'NIELSON FLORÊNCIO DA SILVA', style: 'signName' },
-            { text: 'Locador', style: 'signLabel', margin: [0, 0, 0, 40] },
-
-            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 300, y2: 0, lineWidth: 1 }], alignment: 'center' },
-            { text: nomeInquilinoSeguro, style: 'signName' },
-            { text: 'Locatário (Hóspede)', style: 'signLabel' },
-
-            ...(authCode ? [{
+            {
                 columns: [
-                    { qr: authCode, fit: 50, alignment: 'left' },
                     {
-                        text: [
-                            { text: 'AUTENTICIDADE E REGISTRO DIGITAL\n', bold: true, fontSize: 8, color: '#333333' },
-                            { text: `Código de Validação: ${authCode}\n`, fontSize: 8, color: '#555555', margin: [0, 2, 0, 2] },
-                            { text: 'Documento gerado e registrado eletronicamente no sistema de gestão NJ Imóveis.', fontSize: 7, italics: true, color: '#777777' }
-                        ],
-                        margin: [15, 8, 0, 0]
+                        stack: [
+                            { text: 'TESTEMUNHA 1\n', style: 'signLabel', alignment: 'center' },
+                            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1 }], alignment: 'center' },
+                            { text: 'Nome: __________________________\nCPF: ___________________________', style: 'signLabel', alignment: 'center', margin: [0, 5, 0, 0] }
+                        ]
+                    },
+                    {
+                        stack: [
+                            { text: 'TESTEMUNHA 2\n', style: 'signLabel', alignment: 'center' },
+                            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1 }], alignment: 'center' },
+                            { text: 'Nome: __________________________\nCPF: ___________________________', style: 'signLabel', alignment: 'center', margin: [0, 5, 0, 0] }
+                        ]
                     }
                 ],
-                margin: [0, 40, 0, 0] 
+                margin: [0, 10, 0, 20]
+            },
+
+            { text: 'DOCUMENTOS INTEGRANTES: Anexo I – Inventário e Vistoria; Anexo II – Regras do Condomínio; relação de hóspedes autorizados; comprovantes de pagamento; e registros fotográficos/vídeos de entrada e saída.', style: 'paragraph', margin: [0, 20, 0, 0] },
+            
+            ...(authCode ? [{
+                columns: [
+                    { qr: authCode, fit: 45, alignment: 'left' },
+                    {
+                        text: [
+                            { text: 'AUTENTICIDADE E REGISTRO DIGITAL\n', bold: true, fontSize: 9, color: '#333333' },
+                            { text: `Validação: ${authCode}\n`, fontSize: 9, color: '#555555' },
+                            { text: 'Documento gerado no sistema NJ Imóveis.', fontSize: 8, italics: true, color: '#777777' }
+                        ],
+                        margin: [10, 5, 0, 0]
+                    }
+                ],
+                margin: [0, 20, 0, 0] 
             }] : [])
         ],
         
         styles: {
-            header: { fontSize: 13, bold: true, alignment: 'center', margin: [0, 0, 0, 20] },
-            paragraph: { fontSize: 10, alignment: 'justify', margin: [0, 0, 0, 10], lineHeight: 1.3 },
-            signName: { fontSize: 11, bold: true, alignment: 'center', margin: [0, 5, 0, 2] },
-            signLabel: { fontSize: 10, alignment: 'center', color: '#444444' }
+            header: { fontSize: 13, bold: true, alignment: 'center', margin: [0, 0, 0, 15] },
+            clauseTitle: { fontSize: 12, bold: true, margin: [0, 15, 0, 5], color: '#000000' },
+            paragraph: { fontSize: 10.5, alignment: 'justify', margin: [0, 0, 0, 8], lineHeight: 1.3 },
+            signName: { fontSize: 11, bold: true, alignment: 'center', margin: [0, 6, 0, 0] },
+            signLabel: { fontSize: 10, color: '#333333' }
         }
     };
 };
@@ -1772,6 +1976,8 @@ window.calcularTotalTemporada = () => {
     const checkout = document.getElementById('dataCheckout').value;
     
     const valorDiaria = parseFloat(document.getElementById('valorDiariaTemporada').value) || 0;
+    // NOVA LINHA: Pega o valor do sinal (se estiver vazio, considera 0)
+    const valorReserva = parseFloat(document.getElementById('valorReserva').value) || 0;
 
     const displayQtd = document.getElementById('qtdDiariasDisplay');
     const displayTotal = document.getElementById('valorTotalDisplay');
@@ -1786,8 +1992,12 @@ window.calcularTotalTemporada = () => {
 
         if (diffDias > 0) {
             displayQtd.innerText = diffDias;
+            
             const total = diffDias * valorDiaria;
-            displayTotal.innerText = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(total);
+            // NOVA LINHA: Calcula o saldo descontando o que já foi pago
+            const saldo = total - valorReserva; 
+            
+            displayTotal.innerText = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(saldo);
         } else {
             displayQtd.innerText = "0";
             displayTotal.innerText = "R$ 0,00";

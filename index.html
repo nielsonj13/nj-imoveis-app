@@ -429,7 +429,6 @@
                             </div>
                         </div>
                         
-                        <!-- NOVA LINHA: HORÁRIOS E HÓSPEDES -->
                         <div class="row g-2 mb-3">
                             <div class="col-4">
                                 <label class="fw-bold small text-dark">Hora Check-in</label>
@@ -445,6 +444,42 @@
                             </div>
                         </div>
 
+                        <!-- NOVOS CAMPOS FINANCEIROS EXTRAS -->
+                        <div class="row g-2 mb-3 pt-2 border-top border-info">
+                            <div class="col-md-3">
+                                <label class="fw-bold small text-dark">Sinal/Reserva (R$)</label>
+                                <input type="number" class="form-control border-info" id="valorReserva" placeholder="0,00" oninput="window.calcularTotalTemporada()">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="fw-bold small text-dark">Data do Sinal</label>
+                                <input type="date" class="form-control border-info" id="dataPagamentoReserva">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="fw-bold small text-dark">Forma de Pag.</label>
+                                <select class="form-select border-info" id="formaPagamentoReserva">
+                                    <option value="PIX">PIX</option>
+                                    <option value="Dinheiro">Dinheiro</option>
+                                    <option value="Transferência Bancária">Transferência Bancária</option>
+                                    <option value="Cartão de Crédito/Débito">Cartão de Crédito/Débito</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="fw-bold small text-dark">Venc. do Saldo</label>
+                                <input type="date" class="form-control border-info" id="vencimentoSaldo">
+                            </div>
+                        </div>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="fw-bold small text-dark">Valor Caução (Garantia R$)</label>
+                                <input type="number" class="form-control border-info" id="valorCaucao" placeholder="Ex: 500,00">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="fw-bold small text-dark">Taxa Limpeza Extra (R$)</label>
+                                <input type="number" class="form-control border-info" id="taxaLimpeza" placeholder="Ex: 150,00">
+                            </div>
+                        </div>
+
                         <div class="row g-2 align-items-end">
                             <div class="col-6">
                                 <label class="fw-bold small text-dark">Valor da Diária (R$)</label>
@@ -452,7 +487,7 @@
                             </div>
                             <div class="col-6">
                                 <div class="p-2 bg-white rounded border border-info text-center shadow-sm">
-                                    <small class="text-muted d-block" style="font-size: 0.7rem;">Total (<span id="qtdDiariasDisplay">0</span> diárias)</small>
+                                    <small class="text-muted d-block" style="font-size: 0.7rem;">Saldo Restante (<span id="qtdDiariasDisplay">0</span> diárias)</small>
                                     <span class="fw-bold text-success fs-5" id="valorTotalDisplay">R$ 0,00</span>
                                 </div>
                             </div>
